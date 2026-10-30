@@ -36,7 +36,7 @@ api.onError((err, c) => {
     return c.json({ error: 'another project already uses this slug' }, 409)
   }
   if (err.message.includes('FOREIGN KEY constraint failed')) {
-    return c.json({ error: 'the linked post does not exist' }, 400)
+    return c.json({ error: 'the linked post or project does not exist' }, 400)
   }
   console.error(err)
   return c.json({ error: 'internal error' }, 500)

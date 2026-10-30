@@ -1,16 +1,16 @@
 import { Hono } from 'hono'
 import type { Context } from 'hono'
-import { html, raw } from 'hono/html'
+import { html } from 'hono/html'
 import type { HtmlEscapedString } from 'hono/utils/html'
 import { secureHeaders } from 'hono/secure-headers'
 import type { Env } from './env'
-import { findRedirect, getProjectCase, getPublishedPost, listByTag, listAchievements, listFeaturedProjects, listHomeProfiles, listProjects, listPublished, listTranslations } from './db'
+import { findRedirect, getProjectCase, getPublishedPost, listByTag, listAchievements, listFeaturedProjects, listHomeProfiles, listProjects, listPublished, listTranslations, publishedKinds } from './db'
 import type { Lang } from './db'
 import { homeState } from './home-state'
 import { llmsTxt, rss, sitemap } from './feeds'
 import { homePath, langPrefix, otherLang, UI } from './i18n'
 import { safeRedirectTarget } from './redirect'
-import { AchievementList, Article, Layout, PostList, ProfileHome, ProjectLedger } from './views'
+import { AboutPage, AchievementList, Article, Layout, PostList, ProfileHome, ProjectCasePage, ProjectList } from './views'
 import adminApi from './admin/api'
 import { recordRead, rollupRecent } from './stats'
 import { backupDatabase } from './backup'
@@ -106,7 +106,7 @@ for (const [pre, lang] of LANGS) {
   const ui = UI[lang]
 
   app.get(pre || '/', async (c) => {
-    const [profiles, posts] = await Promise.all([listHomeProfiles(c.env.DB), listPublished(c.env.DB, lang, null, 10)])
+    const [profiles, posts, kinds] = await Promise.all([listHomeProfiles(c.env.DB), listPublished(c.env.DB, lang, null, 10), publishedKinds(c.env.DB, lang)])
     // The Turkish home borrows the English profile when it has none of its own.
     const profile = profiles[lang] ?? (lang === 'tr' ? profiles.en : undefined)
     const state = homeState(profiles)
@@ -120,8 +120,8 @@ for (const [pre, lang] of LANGS) {
           canonical={site(c) + homePath(lang)}
           alternates={state.paired ? bothLangs(c, homePath) : {}}
           noindex={lang === 'tr' && !state.trIndexable}
-          wide
           lang={lang}
+          kinds={kinds}
           description={profile.headline || ui.tagline}
         >
           <ProfileHome profile={profile} projects={projects} posts={posts} lang={lang} />
@@ -136,6 +136,7 @@ for (const [pre, lang] of LANGS) {
         canonical={site(c) + homePath(lang)}
         alternates={state.paired ? bothLangs(c, homePath) : {}}
         lang={lang}
+        kinds={kinds}
         description={ui.tagline}
       >
         <section class="intro">
@@ -147,13 +148,36 @@ for (const [pre, lang] of LANGS) {
         </section>
         <section>
           <h2>{ui.projects}</h2>
-          <ProjectLedger projects={ledger.slice(0, 5)} lang={lang} />
+          <ProjectList projects={ledger.slice(0, 5)} lang={lang} />
         </section>
       </Layout>,
     )
   })
 
-  app.get(`${pre}/about`, (c) => c.redirect(homePath(lang), 301))
+  app.get(`${pre}/about`, async (c) => {
+    const [profiles, kinds] = await Promise.all([listHomeProfiles(c.env.DB), publishedKinds(c.env.DB, lang)])
+    // Same rule as the home page: Turkish borrows the English profile, as noindex without hreflang.
+    const profile = profiles[lang] ?? (lang === 'tr' ? profiles.en : undefined)
+    // Temporary: the page appears as soon as a profile is saved, so no browser may remember this.
+    if (!profile) return c.redirect(homePath(lang), 302)
+    const state = homeState(profiles)
+    cache(c)
+    return page(
+      c,
+      <Layout
+        title={`${ui.about}, ${c.env.SITE_NAME}`}
+        canonical={site(c) + `${pre}/about`}
+        alternates={profiles.en && profiles.tr ? bothLangs(c, (l) => `${langPrefix(l)}/about`) : {}}
+        noindex={lang === 'tr' && !state.trIndexable}
+        lang={lang}
+        kinds={kinds}
+        section="about"
+        description={ui.aboutDescription}
+      >
+        <AboutPage profile={profile} lang={lang} />
+      </Layout>,
+    )
+  })
 
   for (const [section, kind, heading] of [
     ['/writing', 'writing', ui.writing],
@@ -163,7 +187,7 @@ for (const [pre, lang] of LANGS) {
     const sectionName = section === '/writing' ? 'writing' : 'notes'
 
     app.get(path, async (c) => {
-      const [posts, inOther] = await Promise.all([listPublished(c.env.DB, lang, kind, 200), listPublished(c.env.DB, otherLang(lang), kind, 1)])
+      const [posts, inOther, kinds] = await Promise.all([listPublished(c.env.DB, lang, kind, 200), listPublished(c.env.DB, otherLang(lang), kind, 1), publishedKinds(c.env.DB, lang)])
       cache(c)
       return page(
         c,
@@ -173,6 +197,7 @@ for (const [pre, lang] of LANGS) {
           alternates={posts.length && inOther.length ? bothLangs(c, (l) => langPrefix(l) + section) : {}}
           noindex={!posts.length}
           lang={lang}
+          kinds={kinds}
           section={sectionName}
           description={sectionName === 'notes' ? ui.notesDescription : ui.writingDescription}
         >
@@ -185,7 +210,7 @@ for (const [pre, lang] of LANGS) {
     app.get(`${path}/:slug{${SLUG}}`, async (c) => {
       const post = await getPublishedPost(c.env.DB, lang, kind, c.req.param('slug'))
       if (!post) return c.notFound()
-      const translations = await listTranslations(c.env.DB, kind, post.slug)
+      const [translations, kinds] = await Promise.all([listTranslations(c.env.DB, kind, post.slug), publishedKinds(c.env.DB, lang)])
       cache(c)
       return page(
         c,
@@ -194,7 +219,9 @@ for (const [pre, lang] of LANGS) {
           canonical={site(c) + `${path}/${post.slug}`}
           alternates={translations.length > 1 ? bothLangs(c, (l) => `${langPrefix(l)}${section}/${post.slug}`) : {}}
           lang={post.lang}
+          kinds={kinds}
           section={sectionName}
+          leaf={{ label: post.slug, href: `${path}/${post.slug}` }}
           {...(post.summary ? { description: post.summary } : {})}
         >
           <Article post={post} />
@@ -204,9 +231,10 @@ for (const [pre, lang] of LANGS) {
   }
 
   app.get(`${pre}/tags/:tag{${SLUG}}`, async (c) => {
-    const [found, inOther] = await Promise.all([
+    const [found, inOther, kinds] = await Promise.all([
       listByTag(c.env.DB, lang, c.req.param('tag')),
       listByTag(c.env.DB, otherLang(lang), c.req.param('tag')),
+      publishedKinds(c.env.DB, lang),
     ])
     if (!found) return c.notFound()
     cache(c)
@@ -217,6 +245,7 @@ for (const [pre, lang] of LANGS) {
         canonical={site(c) + `${pre}/tags/${found.tag.slug}`}
         alternates={inOther ? bothLangs(c, (l) => `${langPrefix(l)}/tags/${found.tag.slug}`) : {}}
         lang={lang}
+        kinds={kinds}
       >
         <h1>#{found.tag.name}</h1>
         <PostList posts={found.posts} lang={lang} />
@@ -227,7 +256,7 @@ for (const [pre, lang] of LANGS) {
   // Projects are single-language for now: the Turkish pages show the English project data in Turkish chrome,
   // so they declare no hreflang and are noindex until projects get translations.
   app.get(`${pre}/projects`, async (c) => {
-    const projects = await listProjects(c.env.DB)
+    const [projects, kinds] = await Promise.all([listProjects(c.env.DB), publishedKinds(c.env.DB, lang)])
     cache(c)
     return page(
       c,
@@ -237,18 +266,19 @@ for (const [pre, lang] of LANGS) {
         switchTo={`${langPrefix(otherLang(lang))}/projects`}
         noindex={lang === 'tr'}
         lang={lang}
+        kinds={kinds}
         section="projects"
         description={ui.projectsDescription}
       >
         <h1>{ui.projects}</h1>
-        <ProjectLedger projects={projects} lang={lang} />
+        <ProjectList projects={projects} lang={lang} />
       </Layout>,
     )
   })
 
   // Awards are single-language like projects: /tr shows the English data in Turkish chrome, noindex, no hreflang.
   app.get(`${pre}/awards`, async (c) => {
-    const items = await listAchievements(c.env.DB)
+    const [items, kinds] = await Promise.all([listAchievements(c.env.DB), publishedKinds(c.env.DB, lang)])
     cache(c)
     return page(
       c,
@@ -258,6 +288,7 @@ for (const [pre, lang] of LANGS) {
         switchTo={`${langPrefix(otherLang(lang))}/awards`}
         noindex={lang === 'tr'}
         lang={lang}
+        kinds={kinds}
         section="awards"
         description={ui.awardsDescription}
       >
@@ -269,7 +300,7 @@ for (const [pre, lang] of LANGS) {
 
   app.get(`${pre}/projects/:slug{${SLUG}}`, async (c) => {
     const slug = c.req.param('slug')
-    const project = await getProjectCase(c.env.DB, slug)
+    const [project, kinds] = await Promise.all([getProjectCase(c.env.DB, slug), publishedKinds(c.env.DB, lang)])
     if (!project) return c.notFound()
     cache(c)
     return page(
@@ -280,14 +311,12 @@ for (const [pre, lang] of LANGS) {
         switchTo={`${langPrefix(otherLang(lang))}/projects/${slug}`}
         noindex={lang === 'tr'}
         lang={lang}
+        kinds={kinds}
         section="projects"
+        leaf={{ label: slug, href: `${pre}/projects/${slug}` }}
         description={project.summary}
       >
-        <article class="post" lang="en">
-          <h1>{project.name}</h1>
-          <p class="muted">{project.summary}</p>
-          <div class="prose">{raw(project.case_html)}</div>
-        </article>
+        <ProjectCasePage project={project} lang={lang} />
       </Layout>,
     )
   })
@@ -308,7 +337,7 @@ app.get('/sitemap.xml', async (c) => {
     listAchievements(c.env.DB),
   ])
   cache(c)
-  return c.body(sitemap(site(c), [...en, ...tr], projects, homeState(profiles), achievements.length > 0), 200, { 'Content-Type': 'application/xml; charset=utf-8' })
+  return c.body(sitemap(site(c), [...en, ...tr], projects, homeState(profiles), achievements.length > 0, (['en', 'tr'] as const).filter((l) => profiles[l])), 200, { 'Content-Type': 'application/xml; charset=utf-8' })
 })
 
 app.get('/llms.txt', async (c) => {
@@ -326,9 +355,11 @@ app.notFound(async (c) => {
   const lang = pageLang(c)
   const ui = UI[lang]
   const pre = langPrefix(lang)
+  // A failing menu query must not turn a 404 into a 500.
+  const kinds = await publishedKinds(c.env.DB, lang).catch(() => [])
   return page(
     c,
-    <Layout title={`${ui.notFoundTitle}, ${c.env.SITE_NAME}`} lang={lang}>
+    <Layout title={`${ui.notFoundTitle}, ${c.env.SITE_NAME}`} lang={lang} kinds={kinds}>
       <h1>{ui.notFoundTitle}</h1>
       <p>
         {ui.notFoundBefore}

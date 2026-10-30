@@ -41,6 +41,8 @@ function project(overrides: Partial<ProjectInput> = {}): ProjectInput {
     year: 2026,
     status: 'merged',
     status_label: null,
+    role: '',
+    team: '',
     case_md: null,
     case_html: null,
     sort_order: 0,
@@ -321,13 +323,54 @@ describe('public home', () => {
   })
 })
 
-describe('redirects from /about', () => {
-  it('301s /about to / and /tr/about to /tr', async () => {
+describe('/about', () => {
+  it('shows the whole profile body, while the home page keeps only the first paragraph', async () => {
+    await saveProfile(db, 'en', profile({ body_html: '<p>first part</p>\n<h2>Later</h2><p>second part</p>' }))
+    const home = await (await get('/')).text()
+    expect(home).toContain('first part')
+    expect(home).not.toContain('second part')
+    expect(home).toContain('href="/about"')
+    const about = await get('/about')
+    expect(about.status).toBe(200)
+    const html = await about.text()
+    expect(html).toContain('first part')
+    expect(html).toContain('second part')
+    expect(html).toContain('class="wordmark crumb" href="/about"')
+    expect(await (await get('/sitemap.xml')).text()).toContain('<loc>https://ismailtarim.dev/about</loc>')
+  })
+
+  it('pairs both About pages in the sitemap when both languages have a profile', async () => {
+    await saveProfile(db, 'en', profile())
+    await saveProfile(db, 'tr', profile({ name: 'TR', body_html: '<p>tr</p>' }))
+    const xml = await (await get('/sitemap.xml')).text()
+    const entry = xml.match(/<url><loc>https:\/\/ismailtarim\.dev\/tr\/about<\/loc>.*?<\/url>/)?.[0]
+    expect(entry).toContain('hreflang="en"')
+  })
+
+  it('leaves the introduction out when the body does not open with a paragraph', async () => {
+    await saveProfile(db, 'en', profile({ body_html: '<h2>Heading</h2><p>later</p>' }))
+    expect(await (await get('/')).text()).not.toContain('later')
+  })
+
+  it('borrows the English profile on /tr/about as noindex', async () => {
+    await saveProfile(db, 'en', profile())
+    const tr = await (await get('/tr/about')).text()
+    expect(tr).toContain('<p>profile body</p>')
+    expect(tr).toContain('<meta name="robots" content="noindex"/>')
+    expect(await (await get('/sitemap.xml')).text()).not.toContain('/tr/about')
+  })
+
+  it('shows the GitHub profile link as its handle', async () => {
+    await saveProfile(db, 'en', profile())
+    expect(await (await get('/about')).text()).toContain('<a href="https://github.com/ismailtrm">@ismailtrm</a>')
+  })
+
+  it('sends a reader to the home page while there is no profile', async () => {
     const en = await get('/about')
-    expect(en.status).toBe(301)
+    expect(en.status).toBe(302)
     expect(en.headers.get('Location')).toBe('/')
     const tr = await get('/tr/about')
-    expect(tr.status).toBe(301)
+    expect(tr.status).toBe(302)
     expect(tr.headers.get('Location')).toBe('/tr')
   })
 })
@@ -465,6 +508,76 @@ describe('avatar and case study validation', () => {
     expect(html).toContain('Blank case')
     expect(html).not.toContain('href="/projects/blank-case"')
     expect((await get('/projects/blank-case')).status).toBe(404)
+  })
+})
+
+describe('section menu', () => {
+  it('leaves out kinds with nothing published in that language', async () => {
+    let html = await (await get('/')).text()
+    expect(html).not.toContain('<a href="/notes"')
+    expect(html).not.toContain('<a href="/writing"')
+    await savePost(db, null, post({ kind: 'note', slug: 'n', note: { symptom: 's', fix: 'f', environment: {}, verified_at: '2026-10-01' } }))
+    html = await (await get('/')).text()
+    expect(html).toContain('<a href="/notes">Notes</a>')
+    expect(html).not.toContain('<a href="/writing"')
+    expect(await (await get('/tr')).text()).not.toContain('<a href="/tr/notes"')
+  })
+
+  it('does not count a draft as published', async () => {
+    await savePost(db, null, post({ status: 'draft', published_at: null, reason: 'save' }))
+    expect(await (await get('/')).text()).not.toContain('<a href="/writing"')
+  })
+
+  it('still marks an empty section while a reader is on it', async () => {
+    expect(await (await get('/writing')).text()).toContain('<a href="/writing" aria-current="page">')
+  })
+})
+
+describe('project page', () => {
+  it('shows the facts, the full path and the related award, and the list links to the award', async () => {
+    const { id } = await saveProject(db, null, project({ slug: 'stox', name: 'STOX', role: 'Project lead', team: 'with two others', ...CASE }))
+    await db
+      .prepare("INSERT INTO achievements (kind, title, outcome, year, visible, project_id) VALUES ('award', 'Hackathon 2025', '2nd in Turkey', 2025, 1, ?), ('award', 'Hidden award', 'x', 2025, 0, ?)")
+      .bind(id, id)
+      .run()
+    const html = await (await get('/projects/stox')).text()
+    expect(html).toContain('class="wordmark crumb" href="/projects/stox"')
+    for (const text of ['Project lead', 'with two others', '2nd in Turkey', 'Hackathon 2025', '<p>text</p>']) expect(html).toContain(text)
+    expect(html).not.toContain('Hidden award')
+    const award = await db.prepare("SELECT id FROM achievements WHERE title = 'Hackathon 2025'").first<{ id: number }>()
+    expect(html).toContain(`href="/awards#a-${award?.id}"`)
+    expect(await (await get('/projects')).text()).toContain(`href="/awards#a-${award?.id}"`)
+    const awards = await (await get('/awards')).text()
+    expect(awards).toContain(`id="a-${award?.id}"`)
+    expect(awards).toContain('<a href="/projects/stox">STOX</a>')
+    await db.prepare('DELETE FROM achievements').run()
+  })
+
+  it('keeps role, team and the award link through a panel save, and refuses a save without them', async () => {
+    const first = await saveProject(db, null, project({ slug: 'kept', role: 'Lead', team: 'Two' }))
+    const res = await admin(`/projects/${first.id}`, 'PUT', { ...project({ slug: 'kept', base_updated_at: first.updated_at }), role: undefined, team: undefined })
+    expect(res.status).toBe(400)
+    expect(await getProjectForEdit(db, first.id)).toMatchObject({ role: 'Lead', team: 'Two' })
+  })
+
+  it('shows nothing about a hidden project on the awards page, and no results for a hidden award', async () => {
+    const { id } = await saveProject(db, null, project({ slug: 'secret', name: 'Secret project', visible: false, featured: false, ...CASE }))
+    await db.prepare("INSERT INTO achievements (kind, title, year, visible, project_id) VALUES ('award', 'Public award', 2025, 1, ?)").bind(id).run()
+    const html = await (await get('/awards')).text()
+    expect(html).toContain('Public award')
+    expect(html).not.toContain('Secret project')
+    expect(html).not.toContain('/projects/secret')
+    await db.prepare('DELETE FROM achievements').run()
+  })
+
+  it('keeps an award but drops the link when its project is deleted or has no case page', async () => {
+    const { id } = await saveProject(db, null, project({ slug: 'plain', name: 'Plain' }))
+    await db.prepare("INSERT INTO achievements (kind, title, year, visible, project_id) VALUES ('award', 'Kept', 2025, 1, ?)").bind(id).run()
+    expect(await (await get('/awards')).text()).not.toContain('/projects/plain')
+    await deleteProject(db, id)
+    expect(await db.prepare('SELECT project_id FROM achievements').first()).toEqual({ project_id: null })
+    expect(await (await get('/awards')).text()).toContain('Kept')
+    await db.prepare('DELETE FROM achievements').run()
   })
 })
 

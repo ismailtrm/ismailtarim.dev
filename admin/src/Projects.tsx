@@ -67,6 +67,8 @@ function blank(): EditableProject {
     year: new Date().getFullYear(),
     status: 'personal',
     status_label: null,
+    role: '',
+    team: '',
     case_md: null,
     sort_order: 0,
     visible: false,
@@ -141,6 +143,16 @@ export function ProjectEditor({ id }: { id: number | null }) {
           Summary
           <input value={project.summary} onInput={(e) => set({ summary: e.currentTarget.value })} required />
         </label>
+        <div class="row">
+          <label>
+            Role
+            <input maxLength={120} value={project.role} onInput={(e) => set({ role: e.currentTarget.value })} />
+          </label>
+          <label>
+            Team
+            <input maxLength={200} value={project.team} onInput={(e) => set({ team: e.currentTarget.value })} />
+          </label>
+        </div>
         <div class="row">
           <label>
             Year

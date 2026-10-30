@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'preact/hooks'
-import { api, ApiError, type AchievementKind, type AchievementSummary, type EditableAchievement } from './api'
+import { api, ApiError, type AchievementKind, type AchievementSummary, type EditableAchievement, type ProjectSummary } from './api'
 import { LinksEditor } from './LinksEditor'
 
 const KIND_LABEL: Record<AchievementKind, string> = { award: 'Award', contribution: 'Contribution' }
@@ -59,6 +59,7 @@ function blank(): EditableAchievement {
     year: new Date().getFullYear(),
     sort_order: 0,
     visible: false,
+    project_id: null,
     updated_at: null,
     links: [],
   }
@@ -66,6 +67,7 @@ function blank(): EditableAchievement {
 
 export function AchievementEditor({ id }: { id: number | null }) {
   const [item, setItem] = useState<EditableAchievement | null>(id === null ? blank() : null)
+  const [projects, setProjects] = useState<ProjectSummary[]>([])
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -73,6 +75,7 @@ export function AchievementEditor({ id }: { id: number | null }) {
 
   useEffect(() => {
     if (id !== null) api.achievement(id).then(setItem, (e: Error) => setError(e.message))
+    api.projects().then(setProjects, (e: Error) => setError(e.message))
   }, [id])
 
   if (!item) return <p>{error || 'Loading...'}</p>
@@ -147,6 +150,15 @@ export function AchievementEditor({ id }: { id: number | null }) {
             <input type="number" value={item.sort_order} onInput={(e) => set({ sort_order: Number(e.currentTarget.value) })} />
           </label>
         </div>
+        <label>
+          Project
+          <select value={item.project_id ?? ''} onChange={(e) => set({ project_id: e.currentTarget.value ? Number(e.currentTarget.value) : null })}>
+            <option value="">None</option>
+            {projects.map((p) => (
+              <option value={p.id}>{p.name}</option>
+            ))}
+          </select>
+        </label>
         <div class="checks">
           <label class="check">
             <input type="checkbox" checked={item.visible} onChange={(e) => set({ visible: e.currentTarget.checked })} />
