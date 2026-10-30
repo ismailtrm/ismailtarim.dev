@@ -3,6 +3,7 @@ import { api, ApiError, type EditablePost, type Kind, type PostSummary, type Rev
 import { History } from './History'
 import { MarkdownPane } from './MarkdownPane'
 import { render } from './render'
+import { clearUnsaved, useUnsavedGuard } from './unsaved'
 
 const today = () => new Date().toISOString().slice(0, 10)
 
@@ -137,6 +138,7 @@ export function Editor({ id, kind, translateOf, onSaved }: Props) {
   }, [savedId, server?.kind, server?.slug, server?.lang])
 
   const dirty = useMemo(() => !!post && !!server && JSON.stringify(post) !== JSON.stringify(server), [post, server])
+  useUnsavedGuard(dirty)
 
   if (!post) return <p>{error || 'Loading...'}</p>
 
@@ -161,7 +163,10 @@ export function Editor({ id, kind, translateOf, onSaved }: Props) {
       // Merge only what the server decided: text typed while the request was in flight stays.
       setPost((p) => (p ? { ...p, ...stamp } : p))
       setStatus(reason === 'publish' ? 'Published.' : 'Saved.')
-      if (id === null) onSaved(res.id)
+      if (id === null) {
+        clearUnsaved()
+        onSaved(res.id)
+      }
     } catch (e) {
       setError(e instanceof ApiError && e.status === 409 ? `${e.message}. Your text is kept in this browser.` : (e as Error).message)
     } finally {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks'
-import { api, ApiError, type AchievementKind, type AchievementSummary, type EditableAchievement, type ProjectSummary } from './api'
+import { api, type AchievementKind, type AchievementSummary, type EditableAchievement, type ProjectSummary } from './api'
 import { LinksEditor } from './LinksEditor'
+import { RecordActions, useRecordEditor } from './RecordEditor'
 
 const KIND_LABEL: Record<AchievementKind, string> = { award: 'Award', contribution: 'Contribution' }
 
@@ -66,48 +67,22 @@ function blank(): EditableAchievement {
 }
 
 export function AchievementEditor({ id }: { id: number | null }) {
-  const [item, setItem] = useState<EditableAchievement | null>(id === null ? blank() : null)
   const [projects, setProjects] = useState<ProjectSummary[]>([])
-  const [status, setStatus] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [confirming, setConfirming] = useState(false)
+  const editor = useRecordEditor<EditableAchievement>({
+    id,
+    blank,
+    load: api.achievement,
+    save: api.saveAchievement,
+    remove: api.deleteAchievement,
+    route: '/awards',
+  })
+  const { record: item, set, setError, error } = editor
 
   useEffect(() => {
-    if (id !== null) api.achievement(id).then(setItem, (e: Error) => setError(e.message))
     api.projects().then(setProjects, (e: Error) => setError(e.message))
-  }, [id])
+  }, [])
 
   if (!item) return <p>{error || 'Loading...'}</p>
-
-  const set = (patch: Partial<EditableAchievement>) => setItem((a) => (a ? { ...a, ...patch } : a))
-
-  async function save(a: EditableAchievement) {
-    setBusy(true)
-    setError('')
-    setStatus('')
-    try {
-      const res = await api.saveAchievement(a)
-      set({ updated_at: res.updated_at })
-      setStatus('Saved.')
-      if (a.id === null) location.replace(`#/awards/${res.id}`)
-    } catch (e) {
-      setError(e instanceof ApiError && e.status === 409 ? `${e.message}. Reload the page to get the latest version.` : (e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function remove(itemId: number) {
-    setBusy(true)
-    try {
-      await api.deleteAchievement(itemId)
-      location.hash = '#/awards'
-    } catch (e) {
-      setError((e as Error).message)
-      setBusy(false)
-    }
-  }
 
   return (
     <div class="editor">
@@ -167,30 +142,7 @@ export function AchievementEditor({ id }: { id: number | null }) {
         </div>
         <LinksEditor legend="Links" items={item.links} onChange={(links) => set({ links })} newItem={() => ({ label: '', url: '' })} />
       </form>
-      <div class="actions">
-        <p class="state" role="status" aria-live="polite">
-          {error ? <span class="error">{error}</span> : status}
-        </p>
-        {item.id !== null && !confirming && (
-          <button type="button" onClick={() => setConfirming(true)}>
-            Delete
-          </button>
-        )}
-        {item.id !== null && confirming && (
-          <span class="confirm" role="alert">
-            Delete this entry?
-            <button type="button" disabled={busy} onClick={() => remove(item.id!)}>
-              Yes, delete
-            </button>
-            <button type="button" onClick={() => setConfirming(false)}>
-              Cancel
-            </button>
-          </span>
-        )}
-        <button type="button" class="primary" disabled={busy || !item.title.trim()} onClick={() => save(item)}>
-          Save
-        </button>
-      </div>
+      <RecordActions editor={editor} saved={item.id !== null} deletePrompt="Delete this entry?" canSave={!!item.title.trim()} />
     </div>
   )
 }

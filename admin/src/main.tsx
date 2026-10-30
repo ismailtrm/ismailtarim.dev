@@ -1,11 +1,12 @@
 import { render } from 'preact'
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import { api, type Kind, type PostSummary } from './api'
 import { AchievementEditor, AchievementList } from './Awards'
 import { Editor } from './Editor'
 import { ProfileEditor } from './ProfileEditor'
 import { ProjectEditor, ProjectList } from './Projects'
 import { Stats } from './Stats'
+import { clearUnsaved, hasUnsaved } from './unsaved'
 
 // Hash routes keep every panel URL on the one static index.html: #/, #/new/note, #/edit/12, #/translate/12, #/profile, #/projects, #/projects/new, #/projects/3, #/awards, #/awards/new, #/awards/4
 type Route =
@@ -88,11 +89,28 @@ function PostList() {
 
 function App() {
   const [route, setRoute] = useState(() => parse(location.hash))
+  // A hash change has already happened when it is reported, so leaving unsaved work means putting the old hash back.
+  const [pendingHash, setPendingHash] = useState<string | null>(null)
+  const currentHash = useRef(location.hash)
   useEffect(() => {
-    const onHash = () => setRoute(parse(location.hash))
+    const onHash = () => {
+      if (hasUnsaved()) {
+        setPendingHash(location.hash)
+        history.replaceState(null, '', currentHash.current || '#/')
+        return
+      }
+      currentHash.current = location.hash
+      setPendingHash(null)
+      setRoute(parse(location.hash))
+    }
     addEventListener('hashchange', onHash)
     return () => removeEventListener('hashchange', onHash)
   }, [])
+
+  function leave() {
+    clearUnsaved()
+    location.hash = pendingHash ?? '#/'
+  }
 
   return (
     <>
@@ -112,6 +130,17 @@ function App() {
         </nav>
       </header>
       <main class="admin-main">
+        {pendingHash !== null && (
+          <div class="banner" role="alert">
+            You have unsaved changes.
+            <button type="button" onClick={leave}>
+              Leave without saving
+            </button>
+            <button type="button" onClick={() => setPendingHash(null)}>
+              Stay
+            </button>
+          </div>
+        )}
         {route.name === 'list' && <PostList />}
         {route.name === 'stats' && <Stats />}
         {route.name === 'profile' && <ProfileEditor />}
