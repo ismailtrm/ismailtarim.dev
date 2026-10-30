@@ -4,6 +4,7 @@ import { LinksEditor } from './LinksEditor'
 import { MarkdownPane } from './MarkdownPane'
 import { RecordActions, useRecordEditor } from './RecordEditor'
 import { render } from './render'
+import { shareCardKey, type CardSpec } from './shareCard'
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   merged: 'Merged',
@@ -59,6 +60,8 @@ export function ProjectList() {
   )
 }
 
+const cardOf = (p: EditableProject): CardSpec => ({ errorLine: null, title: p.name, label: `Project, ${p.year}` })
+
 function blank(): EditableProject {
   return {
     id: null,
@@ -71,6 +74,7 @@ function blank(): EditableProject {
     role: '',
     team: '',
     case_md: null,
+    og_key: null,
     sort_order: 0,
     visible: false,
     featured: false,
@@ -86,7 +90,11 @@ export function ProjectEditor({ id }: { id: number | null }) {
     id,
     blank,
     load: api.project,
-    save: (p) => api.saveProject(p, p.case_md?.trim() ? render(p.case_md) : null),
+    save: async (p, stored) => {
+      const hasCase = !!p.case_md?.trim()
+      const og_key = hasCase ? await shareCardKey(cardOf(p), stored && cardOf(stored), p.og_key) : p.og_key
+      return { ...(await api.saveProject({ ...p, og_key }, hasCase ? render(p.case_md!) : null)), og_key }
+    },
     remove: api.deleteProject,
     route: '/projects',
   })

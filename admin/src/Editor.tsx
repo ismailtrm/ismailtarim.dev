@@ -3,9 +3,16 @@ import { api, ApiError, type EditablePost, type Kind, type PostSummary, type Rev
 import { History } from './History'
 import { MarkdownPane } from './MarkdownPane'
 import { render } from './render'
+import { errorLineOf, shareCardKey, type CardSpec } from './shareCard'
 import { clearUnsaved, useUnsavedGuard } from './unsaved'
 
 const today = () => new Date().toISOString().slice(0, 10)
+
+const cardOf = (p: EditablePost): CardSpec => ({
+  errorLine: p.note ? errorLineOf(p.note.symptom) : null,
+  title: p.title,
+  label: p.kind === 'note' ? 'Field note' : 'Writing',
+})
 
 function blank(kind: Kind): EditablePost {
   return {
@@ -18,6 +25,7 @@ function blank(kind: Kind): EditablePost {
     status: 'draft',
     published_at: null,
     body_md: '',
+    og_key: null,
     tags: [],
     note: kind === 'note' ? { symptom: '', fix: '', environment: {}, verified_at: today() } : null,
     revision: null,
@@ -27,7 +35,7 @@ function blank(kind: Kind): EditablePost {
 // A translation starts from the saved post: same slug, tags, note box and date, the other language, a draft.
 // The text is a starting point to translate, so it is copied as is.
 function translationOf(src: EditablePost): EditablePost {
-  return { ...src, id: null, revision: null, lang: src.lang === 'en' ? 'tr' : 'en', status: 'draft' }
+  return { ...src, id: null, revision: null, og_key: null, lang: src.lang === 'en' ? 'tr' : 'en', status: 'draft' }
 }
 
 // Versioned so a draft written by an older panel build is ignored rather than crashing the editor.
@@ -157,8 +165,11 @@ export function Editor({ id, kind, translateOf, onSaved }: Props) {
     }
     try {
       const html = render(next.body_md)
-      const res = await api.save(next, html, reason)
-      const stamp = { id: res.id, revision: res.revision, status: next.status, published_at: res.published_at }
+      // A draft is not shared yet, so its card waits for publishing.
+      const public_ = reason === 'publish' || next.status === 'published'
+      const og_key = public_ ? await shareCardKey(cardOf(next), server && cardOf(server), next.og_key) : next.og_key
+      const res = await api.save({ ...next, og_key }, html, reason)
+      const stamp = { id: res.id, revision: res.revision, status: next.status, published_at: res.published_at, og_key }
       setServer({ ...next, ...stamp })
       // Merge only what the server decided: text typed while the request was in flight stays.
       setPost((p) => (p ? { ...p, ...stamp } : p))
@@ -357,7 +368,8 @@ export function Editor({ id, kind, translateOf, onSaved }: Props) {
             History
           </button>
         )}
-        <button type="button" disabled={busy || !dirty} onClick={() => save(post, 'save')}>
+        {/* Published without a share card: saving draws one, even with no text changed. */}
+        <button type="button" disabled={busy || (!dirty && !(published && !post.og_key))} onClick={() => save(post, 'save')}>
           {published ? 'Save changes' : 'Save draft'}
         </button>
         {published ? (

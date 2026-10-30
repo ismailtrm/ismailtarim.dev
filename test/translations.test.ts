@@ -18,6 +18,7 @@ function post(overrides: Partial<PostInput> = {}): PostInput {
     published_at: '2026-10-14T09:00:00Z',
     body_md: 'body',
     body_html: '<p>english body</p>',
+    og_key: null,
     tags: ['Linux'],
     note: { symptom: 'connect timeout', fix: 'IPQoS none', environment: { distro: 'Arch' }, verified_at: '2026-10-14' },
     reason: 'publish',

@@ -12,6 +12,9 @@ const noteMeta = z.object({
 
 // Markdown and the HTML rendered from it in the panel. The HTML is trusted because only the
 // owner can reach this endpoint; the public CSP blocks inline script either way.
+// A share card the panel uploaded. Required, so a panel tab older than this field cannot blank it.
+const ogKey = z.string().max(200).regex(/^img(?:\/[\w-]+(?:\.[\w-]+)*)+$/, 'an uploaded image key').nullable()
+
 export const postInput = z
   .object({
     kind: z.enum(['writing', 'note']),
@@ -23,6 +26,7 @@ export const postInput = z
     published_at: isoSeconds.nullable(),
     body_md: z.string().max(400_000),
     body_html: z.string().max(1_000_000),
+    og_key: ogKey,
     tags: z.array(z.string().trim().min(1).max(40)).max(12),
     note: noteMeta.nullable(),
     reason: z.enum(['save', 'publish', 'restore']),
@@ -78,6 +82,7 @@ export const projectInput = z
     team: z.string().trim().max(200),
     case_md: z.string().max(400_000).nullable(),
     case_html: z.string().max(1_000_000).nullable(),
+    og_key: ogKey,
     sort_order: z.number().int().min(-100_000).max(100_000),
     visible: z.boolean(),
     featured: z.boolean(),

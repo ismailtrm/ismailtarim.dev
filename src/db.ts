@@ -24,6 +24,7 @@ type NoteMeta = {
 export type Post = PostListItem & {
   id: number
   body_html: string
+  og_key: string | null
   updated_at: string
   tags: Tag[]
   note: NoteMeta | null
@@ -93,13 +94,13 @@ export async function listByTag(db: D1Database, lang: Lang, tagSlug: string): Pr
   return { tag, posts: rows<PostListItem>(postsRes) }
 }
 
-type PostRow = PostListItem & { id: number; body_html: string; updated_at: string }
+type PostRow = PostListItem & { id: number; body_html: string; og_key: string | null; updated_at: string }
 type NoteRow = { symptom: string; fix: string; environment: string; verified_at: string }
 
 export async function getPublishedPost(db: D1Database, lang: Lang, kind: Kind, slug: string): Promise<Post | null> {
   const row = await db
     .prepare(
-      `SELECT id, ${LIST_COLUMNS}, body_html, updated_at FROM posts
+      `SELECT id, ${LIST_COLUMNS}, body_html, og_key, updated_at FROM posts
        WHERE kind = ? AND lang = ? AND slug = ? AND status = 'published'`,
     )
     .bind(kind, lang, slug)
@@ -309,6 +310,7 @@ export type ProjectCase = {
   name: string
   summary: string
   case_html: string
+  og_key: string | null
   year: number
   status: ProjectStatus
   status_label: string | null
@@ -332,7 +334,7 @@ export async function getProjectCase(db: D1Database, slug: string): Promise<Proj
   const [projectRes, linksRes, achievementsRes] = await db.batch([
     db
       .prepare(
-        `SELECT p.id, p.name, p.summary, p.case_html, p.year, p.status, p.status_label, p.role, p.team,
+        `SELECT p.id, p.name, p.summary, p.case_html, p.og_key, p.year, p.status, p.status_label, p.role, p.team,
          po.kind AS post_kind, po.slug AS post_slug, po.lang AS post_lang, po.title AS post_title, po.published_at AS post_published_at
          FROM projects p LEFT JOIN posts po ON po.id = p.post_id AND po.status = 'published'
          WHERE p.slug = ? AND p.visible = 1 AND TRIM(p.case_html) <> ''`,

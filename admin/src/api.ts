@@ -18,6 +18,7 @@ export type EditablePost = {
   status: Status
   published_at: string | null
   body_md: string
+  og_key: string | null
   tags: string[]
   note: NoteBox | null
   revision: number | null
@@ -64,6 +65,7 @@ export type EditableProject = {
   role: string
   team: string
   case_md: string | null
+  og_key: string | null
   sort_order: number
   visible: boolean
   featured: boolean

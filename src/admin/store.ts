@@ -32,7 +32,7 @@ export async function listAllPosts(db: D1Database): Promise<AdminPostSummary[]> 
 export async function getPostForEdit(db: D1Database, id: number) {
   const post = await db
     .prepare(
-      `SELECT id, kind, slug, title, summary, lang, status, published_at, body_md, updated_at,
+      `SELECT id, kind, slug, title, summary, lang, status, published_at, body_md, og_key, updated_at,
        (SELECT MAX(r.id) FROM revisions r WHERE r.post_id = posts.id) AS revision
        FROM posts WHERE id = ?`,
     )
@@ -76,10 +76,10 @@ export async function savePost(db: D1Database, id: number | null, input: PostInp
     stmts.push(
       db
         .prepare(
-          `INSERT INTO posts (kind, slug, title, summary, lang, status, body_md, body_html, published_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO posts (kind, slug, title, summary, lang, status, body_md, body_html, og_key, published_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
-        .bind(input.kind, input.slug, input.title, input.summary, input.lang, input.status, input.body_md, input.body_html, publishedAt),
+        .bind(input.kind, input.slug, input.title, input.summary, input.lang, input.status, input.body_md, input.body_html, input.og_key, publishedAt),
     )
     ref = { sql: '(SELECT id FROM posts WHERE kind = ? AND lang = ? AND slug = ?)', binds: [input.kind, input.lang, input.slug] }
   } else {
@@ -99,10 +99,10 @@ export async function savePost(db: D1Database, id: number | null, input: PostInp
         .bind(id, input.base_revision),
       db
         .prepare(
-          `UPDATE posts SET kind = ?, slug = ?, title = ?, summary = ?, lang = ?, status = ?, body_md = ?, body_html = ?,
+          `UPDATE posts SET kind = ?, slug = ?, title = ?, summary = ?, lang = ?, status = ?, body_md = ?, body_html = ?, og_key = ?,
            published_at = ?, updated_at = ? WHERE id = ?`,
         )
-        .bind(input.kind, input.slug, input.title, input.summary, input.lang, input.status, input.body_md, input.body_html, publishedAt, nowIso(), id),
+        .bind(input.kind, input.slug, input.title, input.summary, input.lang, input.status, input.body_md, input.body_html, input.og_key, publishedAt, nowIso(), id),
     )
     // The path carries the /tr prefix, so changing the language moves the post like a slug change does.
     const oldPath = postPath(existing.kind, existing.slug, existing.lang)
