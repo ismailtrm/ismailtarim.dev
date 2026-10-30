@@ -465,3 +465,15 @@ describe('avatar and case study validation', () => {
     expect((await get('/projects/blank-case')).status).toBe(404)
   })
 })
+
+describe('page chrome', () => {
+  it.each([
+    ['/', 'Skip to content'],
+    ['/tr/', 'İçeriğe geç'],
+  ])('%s links past the header to main and sets a theme color', async (path, label) => {
+    const html = await (await get(path)).text()
+    expect(html).toContain(`<a class="skip-link" href="#main">${label}</a>`)
+    expect(html).toContain('<main id="main"')
+    expect(html).toContain('<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171a1f"')
+  })
+})

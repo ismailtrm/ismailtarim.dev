@@ -39,6 +39,8 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f1" />
+        <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171a1f" />
         <title>{title}</title>
         {description ? <meta name="description" content={description} /> : null}
         {noindex ? <meta name="robots" content="noindex" /> : null}
@@ -61,6 +63,7 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
         ></script>
       </head>
       <body class={wide ? 'wide' : undefined}>
+        <a class="skip-link" href="#main">{ui.skip}</a>
         <header class="site-header">
           <span class="site-path">
             <a class="wordmark" href={homePath(lang)} aria-label={ui.home}>
@@ -85,7 +88,7 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
             </button>
           </nav>
         </header>
-        <main>{children}</main>
+        <main id="main" tabindex={-1}>{children}</main>
         <footer class="site-footer">
           <a href={`${pre}/rss.xml`}>RSS</a>
           <a href="https://github.com/ismailtrm">GitHub</a>

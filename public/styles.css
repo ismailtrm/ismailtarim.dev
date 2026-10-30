@@ -64,6 +64,9 @@ a {
 }
 a:hover { color: var(--accent); }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+main:focus { outline: none; }
+.skip-link { position: absolute; left: 16px; top: -48px; width: auto; max-width: none; margin: 0; padding: 6px 10px; background: var(--bg); border: 1px solid var(--accent); border-radius: 6px; z-index: 10; }
+.skip-link:focus { top: 8px; }
 
 .site-header {
   display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 20px;
