@@ -262,6 +262,18 @@ export function Editor({ id, kind, onSaved }: Props) {
             </select>
           </label>
           <label>
+            Published on (empty means the day you publish)
+            <input
+              type="date"
+              value={post.published_at?.slice(0, 10) ?? ''}
+              onInput={(e) => {
+                const day = e.currentTarget.value
+                // Noon UTC keeps the date the same in every time zone the site is read from.
+                set({ published_at: day ? `${day}T12:00:00Z` : null })
+              }}
+            />
+          </label>
+          <label>
             Tags
             <input
               value={post.tags.join(', ')}
