@@ -24,6 +24,8 @@ export function sitemap(siteUrl: string, posts: PostListItem[], projects: Projec
     const pre = langPrefix(lang)
     for (const rest of ['', '/writing', '/notes']) {
       if (rest === '' && lang === 'tr' && !home.trIndexable) continue
+      // An empty list is noindex, so it stays out too.
+      if (rest && !posts.some((p) => p.lang === lang && p.kind === (rest === '/notes' ? 'note' : 'writing'))) continue
       // Homes that are not a hreflang pair get separate groups, so they carry no alternates.
       const group = rest === '' && !home.paired ? `home-${lang}` : rest || '/'
       entries.push({ lang, path: pre + rest || '/', group })

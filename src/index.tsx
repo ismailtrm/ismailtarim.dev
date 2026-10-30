@@ -13,6 +13,7 @@ import { safeRedirectTarget } from './redirect'
 import { AchievementList, Article, Layout, PostList, ProfileHome, ProjectLedger } from './views'
 import adminApi from './admin/api'
 import { recordRead, rollupRecent } from './stats'
+import { backupDatabase } from './backup'
 
 type C = Context<{ Bindings: Env }>
 
@@ -162,11 +163,19 @@ for (const [pre, lang] of LANGS) {
     const sectionName = section === '/writing' ? 'writing' : 'notes'
 
     app.get(path, async (c) => {
-      const posts = await listPublished(c.env.DB, lang, kind, 200)
+      const [posts, inOther] = await Promise.all([listPublished(c.env.DB, lang, kind, 200), listPublished(c.env.DB, otherLang(lang), kind, 1)])
       cache(c)
       return page(
         c,
-        <Layout title={`${heading}, ${c.env.SITE_NAME}`} canonical={site(c) + path} alternates={bothLangs(c, (l) => langPrefix(l) + section)} lang={lang} section={sectionName}>
+        <Layout
+          title={`${heading}, ${c.env.SITE_NAME}`}
+          canonical={site(c) + path}
+          alternates={posts.length && inOther.length ? bothLangs(c, (l) => langPrefix(l) + section) : {}}
+          noindex={!posts.length}
+          lang={lang}
+          section={sectionName}
+          description={sectionName === 'notes' ? ui.notesDescription : ui.writingDescription}
+        >
           <h1>{heading}</h1>
           <PostList posts={posts} lang={lang} />
         </Layout>,
@@ -229,6 +238,7 @@ for (const [pre, lang] of LANGS) {
         noindex={lang === 'tr'}
         lang={lang}
         section="projects"
+        description={ui.projectsDescription}
       >
         <h1>{ui.projects}</h1>
         <ProjectLedger projects={projects} lang={lang} />
@@ -249,6 +259,7 @@ for (const [pre, lang] of LANGS) {
         noindex={lang === 'tr'}
         lang={lang}
         section="awards"
+        description={ui.awardsDescription}
       >
         <h1>{ui.awardsHeading}</h1>
         <AchievementList items={items} lang={lang} />
@@ -272,7 +283,7 @@ for (const [pre, lang] of LANGS) {
         section="projects"
         description={project.summary}
       >
-        <article class="post">
+        <article class="post" lang="en">
           <h1>{project.name}</h1>
           <p class="muted">{project.summary}</p>
           <div class="prose">{raw(project.case_html)}</div>
@@ -333,6 +344,8 @@ app.notFound(async (c) => {
 
 app.onError((err, c) => {
   console.error(err)
+  // A route may have set the page cache before its query failed; a transient error must not be cached.
+  c.header('Cache-Control', 'no-store')
   const lang = pageLang(c)
   const ui = UI[lang]
   return page(
@@ -348,6 +361,9 @@ app.onError((err, c) => {
 export default {
   fetch: app.fetch,
   async scheduled(_event: ScheduledController, env: Env) {
-    await rollupRecent(env)
+    // Independent jobs: a failed rollup must not cost the night's backup, or the reverse.
+    const results = await Promise.allSettled([rollupRecent(env), backupDatabase(env)])
+    const failed = results.filter((r) => r.status === 'rejected')
+    if (failed.length) throw new AggregateError(failed.map((r) => r.reason), 'scheduled job failed')
   },
 } satisfies ExportedHandler<Env>

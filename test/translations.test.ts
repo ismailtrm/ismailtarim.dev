@@ -247,7 +247,7 @@ describe('translations', () => {
     expect((await get('/tr/tags/zonly')).status).toBe(404)
     const single = await (await get('/tags/zonly')).text()
     expect(single).not.toContain('rel="alternate" hreflang=')
-    expect(single).toContain('class="lang-switch" href="/tr"')
+    expect(single).not.toContain('class="lang-switch"')
 
     const both = await (await get('/tags/zboth')).text()
     expect(both).toContain('rel="alternate" hreflang="tr" href="https://ismailtarim.dev/tr/tags/zboth"')

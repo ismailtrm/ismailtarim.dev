@@ -6,7 +6,8 @@ const dateFmt = Object.fromEntries(
 ) as Record<Lang, Intl.DateTimeFormat>
 
 export function formatDate(iso: string, lang: Lang = 'en'): string {
-  return dateFmt[lang].format(new Date(iso))
+  // en-GB ICU writes September as 'Sept', the only short month with four letters.
+  return dateFmt[lang].format(new Date(iso)).replace('Sept', 'Sep')
 }
 
 export function xmlEscape(s: string): string {

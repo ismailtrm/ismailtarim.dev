@@ -15,7 +15,8 @@ Personal site of İsmail Tarım: field notes on problems that are not documented
   `/admin/api` re-checks the Access JWT. The panel renders Markdown with markdown-it and Shiki and sends both the
   Markdown and the HTML; every save is one D1 transaction that also writes a revision row.
 
-Planned: nightly D1 exports to R2.
+- A nightly cron stores a D1 SQL export in R2 under `backups/` (not served by `/media`). It keeps the newest `BACKUP_KEEP_DAILY` plus the first of each of the newest `BACKUP_KEEP_MONTHLY` months, and needs the `D1_EXPORT_TOKEN` secret.
+
 Design decisions: [`docs/DESIGN.md`](docs/DESIGN.md).
 
 ## Develop

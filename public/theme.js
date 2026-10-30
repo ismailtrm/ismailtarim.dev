@@ -22,6 +22,7 @@
     if (!code) return
     navigator.clipboard.writeText(code.textContent).then(function () {
       btn.textContent = 'Copied'
+      btn.setAttribute('aria-live', 'polite')
       setTimeout(function () { btn.textContent = 'Copy' }, 1500)
     }, function () {})
   })

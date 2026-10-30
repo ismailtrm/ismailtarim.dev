@@ -101,7 +101,7 @@ describe('public awards page', () => {
     expect(tr).toContain('href="/awards" hreflang="en"')
     const en = await (await get('/awards')).text()
     expect(en).not.toContain('<meta name="robots"')
-    expect(en).toContain('href="/tr/awards" hreflang="tr"')
+    expect(en).not.toContain('class="lang-switch"')
     expect(await (await get('/sitemap.xml')).text()).not.toContain('/tr/awards')
   })
 
@@ -111,10 +111,10 @@ describe('public awards page', () => {
   })
 
   it('links Awards in the main nav of other pages, between Projects and the language switch', async () => {
-    const en = await (await get('/projects')).text()
-    expect(en).toContain('<a href="/awards">Awards</a>')
-    expect(en.indexOf('href="/projects">')).toBeLessThan(en.indexOf('href="/awards">'))
-    expect(en.indexOf('href="/awards">')).toBeLessThan(en.indexOf('class="lang-switch"'))
+    expect(await (await get('/projects')).text()).toContain('<a href="/awards">Awards</a>')
+    const tr = await (await get('/tr/projects')).text()
+    expect(tr.indexOf('href="/tr/projects"')).toBeLessThan(tr.indexOf('href="/tr/awards"'))
+    expect(tr.indexOf('href="/tr/awards"')).toBeLessThan(tr.indexOf('class="lang-switch"'))
     expect(await (await get('/tr/notes')).text()).toContain('<a href="/tr/awards">Ödüller</a>')
   })
 })

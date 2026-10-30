@@ -15,6 +15,9 @@ export type Env = {
   READS?: AnalyticsEngineDataset
   CF_ACCOUNT_ID: string
   AE_API_TOKEN?: string
+  // Nightly backup (src/backup.ts). The token needs D1 export permission; without it the job does nothing.
+  D1_DATABASE_ID: string
+  D1_EXPORT_TOKEN?: string
   // Set only in .dev.vars; see src/admin/access.ts.
   ADMIN_DEV_BYPASS?: string
 }

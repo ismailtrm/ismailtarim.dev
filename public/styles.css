@@ -1,4 +1,13 @@
 /* Tokens come from docs/DESIGN.md ("Çekirdek kehribarı", IBM Plex). Change them there first. */
+/* Self-hosted so no third party sees a reader. latin-ext carries the Turkish letters. */
+@font-face { font-family: 'IBM Plex Sans'; font-weight: 400; font-display: swap; src: url('/fonts/ibm-plex-sans-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'IBM Plex Sans'; font-weight: 400; font-display: swap; src: url('/fonts/ibm-plex-sans-latin-ext-400-normal.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'IBM Plex Sans'; font-weight: 600; font-display: swap; src: url('/fonts/ibm-plex-sans-latin-600-normal.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'IBM Plex Sans'; font-weight: 600; font-display: swap; src: url('/fonts/ibm-plex-sans-latin-ext-600-normal.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 400; font-display: swap; src: url('/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 400; font-display: swap; src: url('/fonts/ibm-plex-mono-latin-ext-400-normal.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 500; font-display: swap; src: url('/fonts/ibm-plex-mono-latin-500-normal.woff2') format('woff2'); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 500; font-display: swap; src: url('/fonts/ibm-plex-mono-latin-ext-500-normal.woff2') format('woff2'); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
 :root {
   --bg: #f5f5f1;
   --fg: #1c1b18;
@@ -8,7 +17,7 @@
   --sans: 'IBM Plex Sans', system-ui, sans-serif;
   --mono: 'IBM Plex Mono', ui-monospace, monospace;
   --measure: 65ch;
-  --t1: #78736a; --t2: #8a4b00; --t3: #3d6b29; --t4: #9b3b52; --t5: #2b5d88;
+  --t1: #6b675e; --t2: #8a4b00; --t3: #3d6b29; --t4: #9b3b52; --t5: #2b5d88;
   --t6: #6a4c93; --t7: #7a5a00; --t8: #2f6b2f; --t9: #a33a3a;
 }
 @media (prefers-color-scheme: dark) {
@@ -78,6 +87,14 @@ main:focus { outline: none; }
 .wordmark.crumb:hover { color: var(--accent); }
 .site-header nav { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
 @media (max-width: 420px) { .site-header nav { gap: 10px; font-size: 0.94rem; } }
+nav [aria-current='page'] { color: var(--accent); }
+/* Fingers need bigger targets than a pointer does. */
+@media (pointer: coarse) {
+  .site-header nav a { padding-block: 9px; }
+  .theme-toggle { min-height: 40px; min-width: 40px; }
+  .badge { padding: 5px 10px; }
+  .site-footer a, .profile-links a { display: inline-block; padding-block: 6px; }
+}
 .theme-toggle {
   font: inherit; background: none; color: var(--muted); border: 1px solid var(--rule);
   border-radius: 6px; padding: 0 8px; cursor: pointer;
@@ -96,6 +113,16 @@ main { padding-block: 24px 48px; }
 .ledger td { vertical-align: top; border-bottom: 1px solid var(--rule); padding: 10px 10px 10px 0; }
 .num { font-variant-numeric: tabular-nums; }
 .status { white-space: nowrap; }
+/* On a phone the four columns leave no room for the text, so each project becomes a stacked block. */
+@media (max-width: 640px) {
+  .ledger thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .ledger, .ledger tbody, .ledger tr, .ledger td { display: block; }
+  .ledger tr { border-bottom: 1px solid var(--rule); padding-block: 12px; }
+  .ledger td { border: 0; padding: 0 0 4px; }
+  .ledger td.num, .ledger td.status { display: inline; font-size: 0.85rem; color: var(--muted); white-space: normal; }
+  .ledger td.status::before { content: ' '; }
+  .ledger td .badges { margin-top: 6px; }
+}
 .badges { display: flex; flex-wrap: wrap; gap: 6px; }
 .badge {
   font-size: 0.78rem; text-decoration: none; color: var(--accent);
@@ -104,15 +131,18 @@ main { padding-block: 24px 48px; }
 
 /* Home with a profile: aside on the left from 860px up, one column below. */
 .home-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px 48px; }
-@media (min-width: 860px) { .home-grid { grid-template-columns: 260px minmax(0, 1fr); } }
+@media (min-width: 860px) {
+  .home-grid { grid-template-columns: 260px minmax(0, 1fr); }
+  .avatar { max-width: 260px; }
+}
 .profile-card h1 { margin-top: 0.8rem; }
 .profile-card p { margin: 0.3rem 0; }
-.avatar { display: block; width: 100%; max-width: 260px; height: auto; aspect-ratio: 1; object-fit: cover; border-radius: 50%; border: 1px solid var(--rule); }
+.avatar { display: block; width: 100%; max-width: 120px; height: auto; aspect-ratio: 1; object-fit: cover; border-radius: 50%; border: 1px solid var(--rule); }
 .profile-links { list-style: none; padding: 0; margin: 0.8rem 0; display: grid; gap: 4px; }
 .home-main { min-width: 0; max-width: var(--measure); }
 .featured-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
-.featured-head { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: baseline; margin: 0; font-weight: 500; }
-.featured-head .status { font-size: 0.85rem; color: var(--muted); }
+.featured-head { display: flex; flex-wrap: wrap; gap: 2px 12px; align-items: baseline; margin: 0; font-weight: 600; }
+.featured-head .status, .featured-head .num { font-size: 0.85rem; font-weight: 400; color: var(--muted); }
 .featured-list p.muted { margin: 2px 0 6px; }
 
 /* Awards: the result is what a reader scans for, so it gets its own column; what it was for sits beside it. */
@@ -122,7 +152,7 @@ main { padding-block: 24px 48px; }
 .record-result strong { font-weight: 600; line-height: 1.3; }
 .record-result .num { font-size: 0.85rem; }
 .record-body { min-width: 0; }
-.record-body h3 { font-size: 1rem; font-weight: 500; line-height: 1.35; margin: 0; }
+.record-body h3 { font-size: 1rem; font-weight: 600; line-height: 1.35; margin: 0; }
 .record-body p { margin: 4px 0 8px; font-size: 0.95rem; }
 @media (max-width: 560px) { .record { grid-template-columns: minmax(0, 1fr); } }
 
@@ -132,6 +162,10 @@ main { padding-block: 24px 48px; }
 .verified { font-size: 0.8rem; color: var(--muted); }
 .prose pre { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; font-size: 0.9rem; }
 .prose img { max-width: 100%; height: auto; }
+/* A table scrolls inside its own box rather than widening the page. */
+.prose table { display: block; overflow-x: auto; border-collapse: collapse; font-size: 0.92rem; margin: 1.5rem 0; }
+.prose th { text-align: left; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--rule); padding: 6px 14px 6px 0; }
+.prose td { vertical-align: top; border-bottom: 1px solid var(--rule); padding: 8px 14px 8px 0; }
 
 /* Code frames: file name or shell on top, copy button on the right (DESIGN.md). */
 .prose figure.code { margin: 1.5rem 0; border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }

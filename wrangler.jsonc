@@ -51,6 +51,7 @@
     "ACCESS_TEAM_DOMAIN": "https://solitary-leaf-fa02.cloudflareaccess.com",
     "ACCESS_AUD": "13143e40f4537fb1d09362774c5b7a6532c51cc736b6de4ac4a1670f648f5453",
     "ADMIN_EMAIL": "ismailtarim7@gmail.com",
-    "CF_ACCOUNT_ID": "1b092233c0d88ae1268831d32cceed9b"
+    "CF_ACCOUNT_ID": "1b092233c0d88ae1268831d32cceed9b",
+    "D1_DATABASE_ID": "e685a90b-d563-4d67-ad5e-be6d7c27d32d"
   }
 }

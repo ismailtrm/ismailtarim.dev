@@ -4,6 +4,8 @@ import type { PostInput, ProfileInput, ProjectInput } from '../src/admin/schema'
 import { ConflictError, InputError, savePost } from '../src/admin/store'
 import { getProfileForEdit, listProfileRevisions, saveProfile } from '../src/admin/profile-store'
 import { deleteProject, getProjectForEdit, saveProject } from '../src/admin/project-store'
+import { formatDate } from '../src/format'
+import { InlineCode } from '../src/views'
 
 const db = (env as unknown as { DB: D1Database }).DB
 const worker = (exports as unknown as { default: { fetch: (input: string, init?: RequestInit) => Promise<Response> } }).default
@@ -475,5 +477,41 @@ describe('page chrome', () => {
     expect(html).toContain(`<a class="skip-link" href="#main">${label}</a>`)
     expect(html).toContain('<main id="main"')
     expect(html).toContain('<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171a1f"')
+  })
+
+  it('marks the current section and shares a card', async () => {
+    const html = await (await get('/projects')).text()
+    expect(html).toContain('<a href="/projects" aria-current="page">')
+    expect(html).toContain('<meta property="og:image" content="https://ismailtarim.dev/og.png"')
+    expect(html).toContain('<meta name="description"')
+  })
+
+  it('offers no language switch from English pages that have no translation', async () => {
+    expect(await (await get('/projects')).text()).not.toContain('class="lang-switch"')
+    expect(await (await get('/tr/projects')).text()).toContain('class="lang-switch"')
+  })
+
+  it('keeps empty lists out of the index', async () => {
+    const html = await (await get('/tr/writing')).text()
+    expect(html).toContain('<meta name="robots" content="noindex"')
+    expect(html).not.toContain('rel="alternate" hreflang=')
+  })
+})
+
+describe('note answer box', () => {
+  it('renders backticks as code and escapes the rest', () => {
+    const html = String(InlineCode({ text: 'run `ls <x>` now' }))
+    expect(html).toContain('<code translate="no">ls &lt;x&gt;</code>')
+    expect(html).not.toContain('`')
+  })
+
+  it('leaves an unbalanced backtick alone', () => {
+    expect(String(InlineCode({ text: 'a ` b' }))).toContain('a ` b')
+  })
+})
+
+describe('dates', () => {
+  it('writes September with three letters like every other month', () => {
+    expect(formatDate('2026-09-18T00:00:00Z')).toBe('18 Sep 2026')
   })
 })

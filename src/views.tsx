@@ -27,6 +27,8 @@ type LayoutProps = {
   children: Child
 }
 
+const OG_IMAGE = '/og.png'
+
 export function Layout({ title, description, lang = 'en', canonical, alternates, switchTo, noindex, wide, section, children }: LayoutProps) {
   const ui = UI[lang]
   const pre = langPrefix(lang)
@@ -34,6 +36,11 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
   const otherUrl = alternates?.[other]
   // The same page in the other language when it exists, else that language's home.
   const switchHref = switchTo ?? (otherUrl ? new URL(otherUrl).pathname : homePath(other))
+  // English readers only get the switch where a real translation waits; Turkish pages can always go back.
+  const showSwitch = lang === 'tr' || !!(alternates?.en && alternates.tr)
+  const navLink = (name: NonNullable<LayoutProps['section']>, label: string) => (
+    <a href={`${pre}/${name}`} aria-current={section === name ? 'page' : undefined}>{label}</a>
+  )
   return (
     <html lang={lang}>
       <head>
@@ -42,9 +49,22 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
         <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f5f1" />
         <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#171a1f" />
         <title>{title}</title>
+        <link rel="preload" href="/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin="anonymous" />
         {description ? <meta name="description" content={description} /> : null}
         {noindex ? <meta name="robots" content="noindex" /> : null}
         {canonical ? <link rel="canonical" href={canonical} /> : null}
+        {canonical ? (
+          <>
+            <meta property="og:type" content="website" />
+            <meta property="og:title" content={title} />
+            {description ? <meta property="og:description" content={description} /> : null}
+            <meta property="og:url" content={canonical} />
+            <meta property="og:image" content={new URL(OG_IMAGE, canonical).href} />
+            <meta property="og:image:width" content="1200" />
+            <meta property="og:image:height" content="630" />
+            <meta name="twitter:card" content="summary_large_image" />
+          </>
+        ) : null}
         {alternates?.en && alternates.tr ? (
           <>
             <link rel="alternate" hreflang="en" href={alternates.en} />
@@ -66,7 +86,7 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
         <a class="skip-link" href="#main">{ui.skip}</a>
         <header class="site-header">
           <span class="site-path">
-            <a class="wordmark" href={homePath(lang)} aria-label={ui.home}>
+            <a class="wordmark" href={homePath(lang)} aria-label={`~/ismail, ${ui.home}`}>
               <span class="accent">~/</span>ismail
             </a>
             {section ? (
@@ -76,13 +96,15 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
             ) : null}
           </span>
           <nav aria-label={ui.mainNav}>
-            <a href={`${pre}/writing`}>{ui.writing}</a>
-            <a href={`${pre}/notes`}>{ui.notes}</a>
-            <a href={`${pre}/projects`}>{ui.projects}</a>
-            <a href={`${pre}/awards`}>{ui.awards}</a>
-            <a class="lang-switch" href={switchHref} hreflang={other} lang={other} aria-label={UI[other].languageName}>
-              {other.toUpperCase()}
-            </a>
+            {navLink('writing', ui.writing)}
+            {navLink('notes', ui.notes)}
+            {navLink('projects', ui.projects)}
+            {navLink('awards', ui.awards)}
+            {showSwitch ? (
+              <a class="lang-switch" href={switchHref} hreflang={other} lang={other} aria-label={`${other.toUpperCase()}, ${UI[other].languageName}`}>
+                {other.toUpperCase()}
+              </a>
+            ) : null}
             <button type="button" class="theme-toggle" data-theme-toggle aria-label={ui.switchTheme}>
               ◐
             </button>
@@ -93,6 +115,7 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
           <a href={`${pre}/rss.xml`}>RSS</a>
           <a href="https://github.com/ismailtrm">GitHub</a>
           <a href="https://www.linkedin.com/in/ismailtarim">LinkedIn</a>
+          <a href="mailto:me@ismailtarim.dev">Email</a>
           <span class="copyright">© {new Date().getUTCFullYear()} İsmail Tarım</span>
         </footer>
       </body>
@@ -140,13 +163,7 @@ export function ProjectLedger({ projects, lang = 'en' }: { projects: Project[]; 
               <td class="num">{p.year}</td>
               <td class={`status status-${p.status}`}>{p.status_label ?? ui.statusLabel[p.status]}</td>
               <td>
-                <span class="badges">
-                  {p.links.filter((l) => isSafeHttpUrl(l.url)).map((l) => (
-                    <a class="badge" href={l.url} translate="no">
-                      {l.label}
-                    </a>
-                  ))}
-                </span>
+                <BadgeList items={p.links} />
               </td>
             </tr>
           ))}
@@ -238,7 +255,7 @@ export function ProfileHome({ profile, projects, posts, lang }: ProfileHomeProps
     <div class="home-grid">
       <aside class="profile-card">
         {profile.avatar ? (
-          <img class="avatar" src={`/media/${profile.avatar.key}`} alt={profile.name} width={profile.avatar.width} height={profile.avatar.height} />
+          <img class="avatar" src={`/media/${profile.avatar.key}`} alt={profile.name} width={profile.avatar.width} height={profile.avatar.height} fetchpriority="high" />
         ) : null}
         <h1>{profile.name}</h1>
         {profile.headline ? <p>{profile.headline}</p> : null}
@@ -256,7 +273,7 @@ export function ProfileHome({ profile, projects, posts, lang }: ProfileHomeProps
       </aside>
       <div class="home-main">
         {/* body_html is produced by the owner's panel (behind Access), not by visitors. */}
-        <div class="prose">{raw(profile.body_html)}</div>
+        <div class="prose" lang={profile.lang}>{raw(profile.body_html)}</div>
         {projects.length ? (
           <section>
             <h2>{ui.selectedProjects}</h2>
@@ -274,6 +291,14 @@ export function ProfileHome({ profile, projects, posts, lang }: ProfileHomeProps
       </div>
     </div>
   )
+}
+
+// Symptom and fix are plain text fields, and backticks in them mean code. The Worker renders no Markdown,
+// so this handles only that; an unbalanced backtick stays literal.
+export function InlineCode({ text }: { text: string }) {
+  const parts = text.split('`')
+  if (parts.length % 2 === 0) return <>{text}</>
+  return <>{parts.map((part, i) => (i % 2 ? <code translate="no">{part}</code> : part))}</>
 }
 
 function TagLinks({ tags, lang }: { tags: Tag[]; lang: Lang }) {
@@ -299,13 +324,13 @@ export function Article({ post }: { post: Post }) {
       {note ? (
         <aside class="answer" aria-label={ui.shortAnswer}>
           <p>
-            <strong>{ui.symptom}</strong> <code translate="no">{note.symptom}</code>
+            <strong>{ui.symptom}</strong> <InlineCode text={note.symptom} />
           </p>
           <p>
-            <strong>{ui.fix}</strong> {note.fix}
+            <strong>{ui.fix}</strong> <InlineCode text={note.fix} />
           </p>
           <p class="verified" translate="no">
-            {ui.verified} {note.verified_at.slice(0, 10)}:{' '}
+            {ui.verified} {formatDate(note.verified_at, post.lang)}:{' '}
             {Object.entries(note.environment)
               .map(([k, v]) => `${k} ${v}`)
               .join(', ')}
