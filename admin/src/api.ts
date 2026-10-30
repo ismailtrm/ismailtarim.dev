@@ -36,9 +36,15 @@ export class ApiError extends Error {
 }
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/admin/api${path}`, { ...init, credentials: 'same-origin' })
-  // Access answers an expired session with a redirect to its login page.
-  if (res.redirected || res.type === 'opaqueredirect') throw new ApiError('Your session expired. Reload the page to sign in again.', 401)
+  // Access answers an expired session with a redirect to its login page on another origin.
+  const expired = new ApiError('Your session expired. Reload the page to sign in again.', 401)
+  let res: Response
+  try {
+    res = await fetch(`/admin/api${path}`, { ...init, credentials: 'same-origin', redirect: 'manual' })
+  } catch {
+    throw new ApiError('The request did not reach the server. Check the connection and try again.', 0)
+  }
+  if (res.type === 'opaqueredirect') throw expired
   const body = (await res.json().catch(() => null)) as { error?: string; issues?: { path: (string | number)[]; message: string }[] } | null
   if (!res.ok) {
     const detail = body?.issues?.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ')
@@ -53,7 +59,7 @@ export const api = {
   save: (post: EditablePost, bodyHtml: string, reason: 'save' | 'publish' | 'restore') => {
     const { id, revision, ...fields } = post
     const payload = JSON.stringify({ ...fields, body_html: bodyHtml, reason, base_revision: revision })
-    return call<{ id: number; revision: number }>(id ? `/posts/${id}` : '/posts', {
+    return call<{ id: number; revision: number; published_at: string | null }>(id ? `/posts/${id}` : '/posts', {
       method: id ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: payload,

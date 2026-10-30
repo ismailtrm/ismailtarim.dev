@@ -49,7 +49,8 @@ const theme: ThemeRegistrationRaw = {
 const toClasses: ShikiTransformer = {
   pre(node) {
     delete node.properties.style
-    delete node.properties.tabindex
+    // Keeps wide code blocks scrollable from the keyboard.
+    node.properties.tabindex = '0'
     node.properties.class = 'shiki'
   },
   span(node) {
@@ -81,7 +82,7 @@ md.renderer.rules.fence = (tokens, idx) => {
   const code = token.content.replace(/\n$/, '')
   const body = loaded.has(lang)
     ? highlighter.codeToHtml(code, { lang, theme: 'site-classes', transformers: [toClasses] })
-    : `<pre class="shiki"><code>${escapeHtml(code)}</code></pre>`
+    : `<pre class="shiki" tabindex="0"><code>${escapeHtml(code)}</code></pre>`
   const label = title || rawLang
   const head = label ? `<figcaption><span>${escapeHtml(label)}</span><button type="button" class="copy" data-copy>Copy</button></figcaption>` : ''
   return `<figure class="code">${head}${body}</figure>\n`
@@ -103,37 +104,52 @@ function finish(raw: string): string {
   const doc = new DOMParser().parseFromString(`<div id="root">${raw}</div>`, 'text/html')
   const root = doc.getElementById('root')!
 
-  const seen = new Map<string, number>()
-  for (const h of root.querySelectorAll('h2, h3')) {
-    const base = slugify(h.textContent ?? '') || 'section'
-    const n = (seen.get(base) ?? 0) + 1
-    seen.set(base, n)
-    h.id = n === 1 ? base : `${base}-${n}`
+  // Inline styles and event handlers in raw HTML would show in the preview but be blocked
+  // (or worse) on the public page, so they never get stored.
+  for (const el of root.querySelectorAll('*')) {
+    for (const attr of Array.from(el.attributes)) {
+      if (attr.name === 'style' || attr.name.startsWith('on')) el.removeAttribute(attr.name)
+    }
   }
 
   const notes = root.querySelector('section.footnotes')
   if (notes) {
+    let n = 0
     for (const li of notes.querySelectorAll('li[id]')) {
-      const ref = root.querySelector(`a[href="#${CSS.escape(li.id)}"]`)
-      const sup = ref?.closest('sup')
-      if (!sup) continue
+      const refs = Array.from(root.querySelectorAll(`a[href="#${CSS.escape(li.id)}"]`))
+        .map((a) => a.closest('sup'))
+        .filter((s): s is HTMLElement => !!s)
+      if (refs.length === 0) continue
+      n += 1
       li.querySelectorAll('a.footnote-backref').forEach((a) => a.remove())
-      const n = sup.textContent?.replace(/\D/g, '') ?? ''
-      const label = doc.createElement('label')
-      label.className = 'sidenote-ref'
-      label.htmlFor = `sn-${n}`
-      label.textContent = n
       const toggle = doc.createElement('input')
       toggle.type = 'checkbox'
       toggle.id = `sn-${n}`
       toggle.className = 'sidenote-toggle'
+      toggle.setAttribute('aria-label', `Show sidenote ${n}`)
       const note = doc.createElement('span')
       note.className = 'sidenote'
-      note.innerHTML = `<span class="num">${n}</span> ` + Array.from(li.querySelectorAll('p')).map((p) => p.innerHTML).join(' ')
-      sup.replaceWith(label, toggle, note)
+      note.innerHTML = `<span class="num">${n}</span> ` + Array.from(li.querySelectorAll(':scope > p')).map((p) => p.innerHTML).join('<br>')
+      // The first reference carries the note; later references to the same note open it too.
+      refs.forEach((sup, i) => {
+        const label = doc.createElement('label')
+        label.className = 'sidenote-ref'
+        label.htmlFor = toggle.id
+        label.textContent = String(n)
+        if (i === 0) sup.replaceWith(label, toggle, note)
+        else sup.replaceWith(label)
+      })
     }
     notes.previousElementSibling?.matches('hr.footnotes-sep') && notes.previousElementSibling.remove()
     notes.remove()
+  }
+
+  const ids = new Set(Array.from(root.querySelectorAll('[id]'), (el) => el.id))
+  const claim = (base: string) => {
+    let id = base
+    for (let i = 2; ids.has(id); i++) id = `${base}-${i}`
+    ids.add(id)
+    return id
   }
 
   let fig = 0
@@ -143,13 +159,25 @@ function finish(raw: string): string {
     fig += 1
     const figure = doc.createElement('figure')
     figure.className = 'figure'
-    figure.id = `fig-${fig}`
+    figure.id = claim(`fig-${fig}`)
     img.setAttribute('loading', 'lazy')
     const caption = doc.createElement('figcaption')
-    caption.textContent = `Fig. ${fig}. ${img.getAttribute('title') || img.getAttribute('alt') || ''}`.trim()
+    const text = img.getAttribute('title') || img.getAttribute('alt') || ''
+    caption.textContent = `Fig. ${fig}. ${text}`.trim()
+    // Without a separate title the caption repeats the alt text; screen readers would read it twice.
+    if (!img.getAttribute('title')) img.setAttribute('alt', '')
     img.removeAttribute('title')
     figure.append(img, caption)
     p.replaceWith(figure)
+  }
+
+  // After the sidenote pass, so a heading's footnote number is not part of its anchor.
+  for (const h of root.querySelectorAll('h2, h3')) {
+    const text = Array.from(h.childNodes)
+      .filter((node) => !(node instanceof Element && node.matches('label, input, .sidenote')))
+      .map((node) => node.textContent)
+      .join('')
+    h.id = claim(slugify(text) || 'section')
   }
 
   return root.innerHTML

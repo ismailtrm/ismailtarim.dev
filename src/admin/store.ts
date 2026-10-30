@@ -53,7 +53,7 @@ function nowIso(): string {
   return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z')
 }
 
-export async function savePost(db: D1Database, id: number | null, input: PostInput): Promise<{ id: number; revision: number }> {
+export async function savePost(db: D1Database, id: number | null, input: PostInput): Promise<{ id: number; revision: number; published_at: string | null }> {
   const publishedAt = input.status === 'published' ? (input.published_at ?? nowIso()) : input.published_at
   const stmts: D1PreparedStatement[] = []
   // Every statement names the post through this reference, so a new post's id can be used
@@ -134,7 +134,7 @@ export async function savePost(db: D1Database, id: number | null, input: PostInp
       .prepare(`INSERT INTO revisions (post_id, title, body_md, meta_json, reason) VALUES (${ref.sql}, ?, ?, ?, ?)`)
       .bind(...ref.binds, input.title, input.body_md, JSON.stringify(meta), input.reason),
     db
-      .prepare(`SELECT p.id, (SELECT MAX(r.id) FROM revisions r WHERE r.post_id = p.id) AS revision FROM posts p WHERE p.id = ${ref.sql}`)
+      .prepare(`SELECT p.id, p.published_at, (SELECT MAX(r.id) FROM revisions r WHERE r.post_id = p.id) AS revision FROM posts p WHERE p.id = ${ref.sql}`)
       .bind(...ref.binds),
   )
 
@@ -145,7 +145,7 @@ export async function savePost(db: D1Database, id: number | null, input: PostInp
     if (err instanceof Error && err.message.includes('malformed JSON')) throw new ConflictError(STALE)
     throw err
   }
-  const last = results[results.length - 1]?.results[0] as { id: number; revision: number } | undefined
+  const last = results[results.length - 1]?.results[0] as { id: number; revision: number; published_at: string | null } | undefined
   if (!last) throw new Error('saved post could not be read back')
   return last
 }

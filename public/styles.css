@@ -118,7 +118,8 @@ main { padding-block: 24px 48px; }
 
 /* Sidenotes: in the right margin on wide screens, opened inline by tapping the number otherwise. */
 .sidenote-ref { font: 500 0.75rem var(--mono); color: var(--accent); vertical-align: super; cursor: pointer; padding-inline: 1px; }
-.sidenote-toggle { display: none; }
+.sidenote-toggle { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.sidenote-toggle:focus-visible + .sidenote, .sidenote-ref:has(+ .sidenote-toggle:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sidenote { display: none; font-size: 0.85rem; line-height: 1.45; color: var(--muted); }
 .sidenote .num { font-family: var(--mono); color: var(--accent); }
 .sidenote-toggle:checked + .sidenote { display: block; margin: 0.5rem 0; padding-left: 12px; border-left: 2px solid var(--rule); }
@@ -181,7 +182,9 @@ body.admin > * { max-width: 1280px; }
 .revisions [aria-pressed='true'] { border-color: var(--accent); }
 .diff { white-space: pre-wrap; font-size: 0.85rem; border: 1px solid var(--rule); border-radius: 8px; padding: 10px; max-height: 50vh; overflow: auto; }
 .diff .add { color: var(--t8); }
+.diff .add::before { content: '+ '; }
 .diff .del { color: var(--t9); text-decoration: line-through; }
+.diff .del::before { content: '- '; }
 .diff .same { color: var(--muted); }
 @media (max-width: 860px) {
   .tabs { display: flex; }

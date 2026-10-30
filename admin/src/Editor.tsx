@@ -23,13 +23,22 @@ function blank(kind: Kind): EditablePost {
   }
 }
 
-const draftKey = (id: number | null, kind: Kind) => `draft:${id ?? `new-${kind}`}`
+// Versioned so a draft written by an older panel build is ignored rather than crashing the editor.
+const draftKey = (id: number | null, kind: Kind) => `draft:v1:${id ?? `new-${kind}`}`
 
 // The browser keeps an unsaved copy so a closed tab loses nothing; only Save reaches the server.
 function readDraft(key: string): EditablePost | null {
   try {
     const raw = localStorage.getItem(key)
-    return raw ? (JSON.parse(raw) as EditablePost) : null
+    const d = raw ? (JSON.parse(raw) as Partial<EditablePost>) : null
+    const valid =
+      !!d &&
+      typeof d.title === 'string' &&
+      typeof d.slug === 'string' &&
+      typeof d.body_md === 'string' &&
+      Array.isArray(d.tags) &&
+      (d.kind === 'note') === (d.note != null && typeof d.note === 'object')
+    return valid ? (d as EditablePost) : null
   } catch {
     return null
   }
@@ -83,6 +92,7 @@ export function Editor({ id, kind, onSaved }: Props) {
   const [tab, setTab] = useState<'write' | 'preview'>('write')
   const [showHistory, setShowHistory] = useState(false)
   const [envText, setEnvText] = useState('')
+  const [slugTouched, setSlugTouched] = useState(false)
   const [preview, setPreview] = useState('')
   const insertRef = useRef<((text: string) => void) | null>(null)
   const key = draftKey(id, kind)
@@ -100,9 +110,11 @@ export function Editor({ id, kind, onSaved }: Props) {
     load().catch((e: Error) => setError(e.message))
   }, [id, kind])
 
+  // While the restore banner is open the stored draft is what it offers, so leave it alone.
   useEffect(() => {
-    if (post && server && JSON.stringify(post) !== JSON.stringify(server)) writeDraft(key, post)
-  }, [post])
+    if (!post || !server || pendingDraft) return
+    writeDraft(key, JSON.stringify(post) === JSON.stringify(server) ? null : post)
+  }, [post, server, pendingDraft])
 
   const bodyMd = post?.body_md ?? ''
   useEffect(() => {
@@ -128,13 +140,18 @@ export function Editor({ id, kind, onSaved }: Props) {
     setBusy(true)
     setError('')
     setStatus('')
+    if (!/^[a-z0-9-]+$/.test(next.slug)) {
+      setError('The slug may only contain lowercase letters, digits and hyphens.')
+      setBusy(false)
+      return
+    }
     try {
       const html = render(next.body_md)
       const res = await api.save(next, html, reason)
-      const saved = { ...next, id: res.id, revision: res.revision }
-      writeDraft(key, null)
-      setServer(saved)
-      setPost(saved)
+      const stamp = { id: res.id, revision: res.revision, status: next.status, published_at: res.published_at }
+      setServer({ ...next, ...stamp })
+      // Merge only what the server decided: text typed while the request was in flight stays.
+      setPost((p) => (p ? { ...p, ...stamp } : p))
       setStatus(reason === 'publish' ? 'Published.' : 'Saved.')
       if (id === null) onSaved(res.id)
     } catch (e) {
@@ -152,7 +169,8 @@ export function Editor({ id, kind, onSaved }: Props) {
       try {
         const bitmap = await createImageBitmap(file)
         const res = await api.upload(file, alt, bitmap.width, bitmap.height)
-        insertRef.current?.(`\n![${alt}](${res.url})\n`)
+        const safeAlt = alt.replace(/[\[\]\\]/g, '\\$&').replace(/\s+/g, ' ')
+        insertRef.current?.(`\n![${safeAlt}](${res.url})\n`)
         setStatus(`Uploaded ${file.name}.`)
       } catch (e) {
         setError(`Upload failed: ${(e as Error).message}`)
@@ -178,7 +196,8 @@ export function Editor({ id, kind, onSaved }: Props) {
           <button
             type="button"
             onClick={() => {
-              setPost(pendingDraft)
+              // The draft's own revision may be stale; save against the one just loaded.
+              setPost({ ...pendingDraft, id: server?.id ?? null, revision: server?.revision ?? null })
               setEnvText(envToText(pendingDraft.note?.environment ?? {}))
               setVersion((v) => v + 1)
               setPendingDraft(null)
@@ -205,14 +224,17 @@ export function Editor({ id, kind, onSaved }: Props) {
             value={post.title}
             onInput={(e) => {
               const title = e.currentTarget.value
-              set((p) => ({ title, ...(p.id === null && p.status !== 'published' ? { slug: slugify(title) } : {}) }))
+              set((p) => ({ title, ...(p.id === null && !slugTouched ? { slug: slugify(title) } : {}) }))
             }}
             required
           />
         </label>
         <label>
           Slug
-          <input value={post.slug} onInput={(e) => set({ slug: e.currentTarget.value })} pattern="[a-z0-9-]+" required />
+          <input value={post.slug} onInput={(e) => {
+              setSlugTouched(true)
+              set({ slug: e.currentTarget.value })
+            }} pattern="[a-z0-9-]+" required />
         </label>
         <label>
           Summary
