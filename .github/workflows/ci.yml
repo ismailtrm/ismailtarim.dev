@@ -33,8 +33,8 @@ jobs:
 
   # Migrations can be hard to undo, so a run with unapplied ones waits for approval on the
   # `migrations` environment. The check asks D1 rather than diffing the push: a superseded or
-  # rejected run must not hide a migration from the next one. The token lives only in the
-  # environments, which are restricted to main.
+  # rejected run must not hide a migration from the next one. Only these jobs read the token,
+  # and forks never receive it; both environments are restricted to main.
   changes:
     if: github.event_name == 'push' && vars.DEPLOY_ENABLED == 'true'
     needs: check
