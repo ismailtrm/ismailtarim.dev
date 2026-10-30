@@ -21,6 +21,8 @@ type LayoutProps = {
   // Where the language switch goes when there are no alternates to take it from.
   switchTo?: string
   noindex?: boolean
+  // This page's share card, as an uploaded image key; otherwise the site card.
+  ogKey?: string | null
   // Kinds of post published in this language; an empty section stays out of the menu.
   kinds?: Kind[]
   // The site section this page belongs to, shown after the name as a path.
@@ -32,7 +34,7 @@ type LayoutProps = {
 
 const OG_IMAGE = '/og.png'
 
-export function Layout({ title, description, lang = 'en', canonical, alternates, switchTo, noindex, kinds = [], section, leaf, children }: LayoutProps) {
+export function Layout({ title, description, lang = 'en', canonical, alternates, switchTo, noindex, ogKey, kinds = [], section, leaf, children }: LayoutProps) {
   const ui = UI[lang]
   const pre = langPrefix(lang)
   const other = otherLang(lang)
@@ -62,7 +64,7 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
             <meta property="og:title" content={title} />
             {description ? <meta property="og:description" content={description} /> : null}
             <meta property="og:url" content={canonical} />
-            <meta property="og:image" content={new URL(OG_IMAGE, canonical).href} />
+            <meta property="og:image" content={new URL(ogKey ? `/media/${ogKey}` : OG_IMAGE, canonical).href} />
             <meta property="og:image:width" content="1200" />
             <meta property="og:image:height" content="630" />
             <meta name="twitter:card" content="summary_large_image" />

@@ -17,6 +17,7 @@ function draft(overrides: Partial<PostInput> = {}): PostInput {
     published_at: null,
     body_md: '# hi',
     body_html: '<h1>hi</h1>',
+    og_key: null,
     tags: ['Linux', 'NetworkManager'],
     note: { symptom: 'secret required but not provided', fix: 'run a secret agent', environment: { distro: 'Arch' }, verified_at: '2026-09-18' },
     reason: 'save',

@@ -222,6 +222,7 @@ for (const [pre, lang] of LANGS) {
           kinds={kinds}
           section={sectionName}
           leaf={{ label: post.slug, href: `${path}/${post.slug}` }}
+          ogKey={post.og_key}
           {...(post.summary ? { description: post.summary } : {})}
         >
           <Article post={post} />
@@ -314,6 +315,7 @@ for (const [pre, lang] of LANGS) {
         kinds={kinds}
         section="projects"
         leaf={{ label: slug, href: `${pre}/projects/${slug}` }}
+        ogKey={project.og_key}
         description={project.summary}
       >
         <ProjectCasePage project={project} lang={lang} />

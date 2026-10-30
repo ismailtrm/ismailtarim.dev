@@ -45,6 +45,7 @@ function project(overrides: Partial<ProjectInput> = {}): ProjectInput {
     team: '',
     case_md: null,
     case_html: null,
+    og_key: null,
     sort_order: 0,
     visible: true,
     featured: true,
@@ -66,6 +67,7 @@ function post(overrides: Partial<PostInput> = {}): PostInput {
     published_at: '2026-10-14T09:00:00Z',
     body_md: 'b',
     body_html: '<p>b</p>',
+    og_key: null,
     tags: [],
     note: null,
     reason: 'publish',
@@ -508,6 +510,25 @@ describe('avatar and case study validation', () => {
     expect(html).toContain('Blank case')
     expect(html).not.toContain('href="/projects/blank-case"')
     expect((await get('/projects/blank-case')).status).toBe(404)
+  })
+})
+
+describe('share cards', () => {
+  const OG = '<meta property="og:image" content="https://ismailtarim.dev'
+
+  it('uses the page card when one was saved and the site card otherwise', async () => {
+    await savePost(db, null, post({ slug: 'plain' }))
+    await savePost(db, null, post({ slug: 'carded', og_key: 'img/2026/card.png' }))
+    await saveProject(db, null, project({ slug: 'with-card', og_key: 'img/2026/project.png', ...CASE }))
+    expect(await (await get('/writing/plain')).text()).toContain(`${OG}/og.png"`)
+    expect(await (await get('/writing/carded')).text()).toContain(`${OG}/media/img/2026/card.png"`)
+    expect(await (await get('/projects/with-card')).text()).toContain(`${OG}/media/img/2026/project.png"`)
+  })
+
+  it('refuses a key that is not an uploaded image, and a save that leaves it out', async () => {
+    expect((await admin('/projects', 'POST', project({ og_key: 'img/../secret.png' }))).status).toBe(400)
+    const { og_key: _og, ...withoutCard } = project()
+    expect((await admin('/projects', 'POST', withoutCard)).status).toBe(400)
   })
 })
 

@@ -2,14 +2,16 @@ import { useEffect, useMemo, useState } from 'preact/hooks'
 import { ApiError } from './api'
 import { clearUnsaved, useUnsavedGuard } from './unsaved'
 
-type Saved = { id: number; updated_at: string }
+// A save may also report the share card it uploaded.
+type Saved = { id: number; updated_at: string; og_key?: string | null }
 type Stored = { id: number | null; updated_at: string | null }
 
 type Options<T> = {
   id: number | null
   blank: () => T
   load: (id: number) => Promise<T>
-  save: (record: T) => Promise<Saved>
+  // stored: the record as last saved, to tell whether derived output must change.
+  save: (record: T, stored: T | null) => Promise<Saved>
   remove: (id: number) => Promise<unknown>
   // The list route; a saved record lives at `${route}/${id}`.
   route: string
@@ -45,10 +47,11 @@ export function useRecordEditor<T extends Stored>({ id, blank, load, save, remov
     setError('')
     setStatus('')
     try {
-      const res = await save(record)
-      setServer({ ...record, updated_at: res.updated_at })
+      const res = await save(record, server)
+      const stamp = { updated_at: res.updated_at, ...(res.og_key === undefined ? {} : { og_key: res.og_key }) }
+      setServer({ ...record, ...stamp })
       // Text typed while the request was in flight stays, and still counts as unsaved.
-      setRecord((r) => (r ? { ...r, updated_at: res.updated_at } : r))
+      setRecord((r) => (r ? { ...r, ...stamp } : r))
       setStatus('Saved.')
       if (record.id === null) {
         clearUnsaved()

@@ -116,7 +116,7 @@ Kernel yamaları ve PR'lar commit hash ve sürüm rozetleriyle gösterilir; her 
 | Deneme, proje | Tür + tarih, başlık, site adı |
 | Ana sayfa, About | İsim kartı |
 
-Derleme sırasında üretilir, 1200x630.
+Panelde Save sırasında tarayıcıda çizilir ve R2'ye yüklenir, 1200x630; yalnız kart metni değişince yeniden üretilir. Kartı olmayan sayfa site kartını kullanır.
 
 ## Hareket
 
