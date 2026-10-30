@@ -1,7 +1,7 @@
 // Read-side queries. List queries never select body_html/body_md: those are the wide columns.
 
 export type Kind = 'writing' | 'note'
-type Lang = 'en' | 'tr'
+export type Lang = 'en' | 'tr'
 
 export type PostListItem = {
   kind: Kind
@@ -52,45 +52,46 @@ function rows<T>(res: D1Result | undefined): T[] {
   return res.results as T[]
 }
 
-export async function listPublished(db: D1Database, kind: Kind | null, limit = 50): Promise<PostListItem[]> {
+export async function listPublished(db: D1Database, lang: Lang, kind: Kind | null, limit = 50): Promise<PostListItem[]> {
   const stmt = kind
     ? db
-        .prepare(`SELECT ${LIST_COLUMNS} FROM posts WHERE status = 'published' AND kind = ? ORDER BY published_at DESC LIMIT ?`)
-        .bind(kind, limit)
+        .prepare(`SELECT ${LIST_COLUMNS} FROM posts WHERE status = 'published' AND lang = ? AND kind = ? ORDER BY published_at DESC LIMIT ?`)
+        .bind(lang, kind, limit)
     : db
-        .prepare(`SELECT ${LIST_COLUMNS} FROM posts WHERE status = 'published' ORDER BY published_at DESC LIMIT ?`)
-        .bind(limit)
+        .prepare(`SELECT ${LIST_COLUMNS} FROM posts WHERE status = 'published' AND lang = ? ORDER BY published_at DESC LIMIT ?`)
+        .bind(lang, limit)
   const { results } = await stmt.all<PostListItem>()
   return results
 }
 
-export async function listByTag(db: D1Database, tagSlug: string): Promise<{ tag: Tag; posts: PostListItem[] } | null> {
+export async function listByTag(db: D1Database, lang: Lang, tagSlug: string): Promise<{ tag: Tag; posts: PostListItem[] } | null> {
   const [tagRes, postsRes] = await db.batch([
     db.prepare('SELECT slug, name FROM tags WHERE slug = ?').bind(tagSlug),
     db
       .prepare(
         `SELECT p.kind, p.slug, p.title, p.summary, p.lang, p.published_at
          FROM posts p JOIN post_tags pt ON pt.post_id = p.id JOIN tags t ON t.id = pt.tag_id
-         WHERE t.slug = ? AND p.status = 'published'
+         WHERE t.slug = ? AND p.status = 'published' AND p.lang = ?
          ORDER BY p.published_at DESC LIMIT 500`,
       )
-      .bind(tagSlug),
+      .bind(tagSlug, lang),
   ])
   const tag = rows<Tag>(tagRes)[0]
-  if (!tag) return null
+  // A tag with nothing published in this language has no page in it.
+  if (!tag || !rows<PostListItem>(postsRes).length) return null
   return { tag, posts: rows<PostListItem>(postsRes) }
 }
 
 type PostRow = PostListItem & { id: number; body_html: string; updated_at: string }
 type NoteRow = { symptom: string; fix: string; environment: string; verified_at: string }
 
-export async function getPublishedPost(db: D1Database, kind: Kind, slug: string): Promise<Post | null> {
+export async function getPublishedPost(db: D1Database, lang: Lang, kind: Kind, slug: string): Promise<Post | null> {
   const row = await db
     .prepare(
       `SELECT id, ${LIST_COLUMNS}, body_html, updated_at FROM posts
-       WHERE kind = ? AND slug = ? AND status = 'published'`,
+       WHERE kind = ? AND lang = ? AND slug = ? AND status = 'published'`,
     )
-    .bind(kind, slug)
+    .bind(kind, lang, slug)
     .first<PostRow>()
   if (!row) return null
 
@@ -106,6 +107,15 @@ export async function getPublishedPost(db: D1Database, kind: Kind, slug: string)
     tags: rows<Tag>(tagsRes),
     note: noteRow ? { ...noteRow, environment: parseEnvironment(noteRow.environment) } : null,
   }
+}
+
+// The languages in which this slug is published, for hreflang and the language switch.
+export async function listTranslations(db: D1Database, kind: Kind, slug: string): Promise<Lang[]> {
+  const { results } = await db
+    .prepare("SELECT lang FROM posts WHERE kind = ? AND slug = ? AND status = 'published' ORDER BY lang")
+    .bind(kind, slug)
+    .all<{ lang: Lang }>()
+  return results.map((r) => r.lang)
 }
 
 // environment is checked with json_valid() in the schema; this only narrows the shape.

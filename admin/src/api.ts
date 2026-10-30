@@ -6,7 +6,7 @@ export type Status = 'draft' | 'published' | 'archived'
 
 export type NoteBox = { symptom: string; fix: string; environment: Record<string, string>; verified_at: string }
 
-export type PostSummary = { id: number; kind: Kind; slug: string; title: string; status: Status; published_at: string | null; updated_at: string }
+export type PostSummary = { id: number; kind: Kind; slug: string; title: string; lang: 'en' | 'tr'; status: Status; published_at: string | null; updated_at: string }
 
 export type EditablePost = {
   id: number | null

@@ -74,12 +74,32 @@ describe('recordRead', () => {
     expect(points).toEqual([{ indexes: ['/notes/abc'], blobs: ['/notes/abc', 'ai', 'GPTBot', 'XX'], doubles: [1] }])
   })
 
+  it.each(['/tr', '/tr/', '/tr/notes', '/tr/notes/ssh-dscp-ef', '/tr/tags/linux', '/tr/rss.xml'])('counts the Turkish page %s', (path) => {
+    const { env: en, points } = capture()
+    recordRead(en, get(), path, 200)
+    expect(points).toHaveLength(1)
+    expect(points[0]?.blobs?.[0]).toBe(path.replace(/\/+$/, ''))
+  })
+
+  it.each([
+    ['/tr/', '/tr'],
+    ['/notes/', '/notes'],
+    ['/tr/notes/', '/tr/notes'],
+  ])('counts %s as %s', (path, counted) => {
+    const { env: en, points } = capture()
+    recordRead(en, get(), path, 200)
+    expect(points[0]?.blobs?.[0]).toBe(counted)
+  })
+
   it.each([
     ['a non-200 response', '/notes/abc', 404, 'GET'],
     ['a HEAD request', '/notes/abc', 200, 'HEAD'],
     ['a non-canonical path', '/notes/ABC', 200, 'GET'],
     ['an admin path', '/admin/api/posts', 200, 'GET'],
     ['a path that only starts like a page', '/notesXYZ', 200, 'GET'],
+    ['a Turkish path that only starts like a page', '/trnotes', 200, 'GET'],
+    ['a Turkish path with an unknown page', '/tr/admin', 200, 'GET'],
+    ['a non-canonical Turkish path', '/tr/notes/ABC', 200, 'GET'],
   ])('skips %s', (_name, path, status, method) => {
     const { env: en, points } = capture()
     recordRead(en, get(undefined, method), path, status)

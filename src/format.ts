@@ -1,7 +1,12 @@
-const dateFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+import type { Lang } from './db'
+import { langPrefix, LOCALE } from './i18n'
 
-export function formatDate(iso: string): string {
-  return dateFmt.format(new Date(iso))
+const dateFmt = Object.fromEntries(
+  (['en', 'tr'] as const).map((l) => [l, new Intl.DateTimeFormat(LOCALE[l], { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })]),
+) as Record<Lang, Intl.DateTimeFormat>
+
+export function formatDate(iso: string, lang: Lang = 'en'): string {
+  return dateFmt[lang].format(new Date(iso))
 }
 
 export function xmlEscape(s: string): string {
@@ -13,6 +18,6 @@ export function xmlEscape(s: string): string {
     .replace(/'/g, '&apos;')
 }
 
-export function postPath(kind: 'writing' | 'note', slug: string): string {
-  return kind === 'note' ? `/notes/${slug}` : `/writing/${slug}`
+export function postPath(kind: 'writing' | 'note', slug: string, lang: Lang = 'en'): string {
+  return langPrefix(lang) + (kind === 'note' ? `/notes/${slug}` : `/writing/${slug}`)
 }

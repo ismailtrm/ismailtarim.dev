@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
-import { api, ApiError, type EditablePost, type Kind, type RevisionDetail } from './api'
+import { api, ApiError, type EditablePost, type Kind, type PostSummary, type RevisionDetail } from './api'
 import { History } from './History'
 import { MarkdownEditor } from './MarkdownEditor'
 import { render } from './render'
@@ -23,8 +23,15 @@ function blank(kind: Kind): EditablePost {
   }
 }
 
+// A translation starts from the saved post: same slug, tags, note box and date, the other language, a draft.
+// The text is a starting point to translate, so it is copied as is.
+function translationOf(src: EditablePost): EditablePost {
+  return { ...src, id: null, revision: null, lang: src.lang === 'en' ? 'tr' : 'en', status: 'draft' }
+}
+
 // Versioned so a draft written by an older panel build is ignored rather than crashing the editor.
-const draftKey = (id: number | null, kind: Kind) => `draft:v1:${id ?? `new-${kind}`}`
+const draftKey = (id: number | null, kind: Kind, translateOf?: number) =>
+  `draft:v1:${id ?? (translateOf ? `translate-${translateOf}` : `new-${kind}`)}`
 
 // The browser keeps an unsaved copy so a closed tab loses nothing; only Save reaches the server.
 function readDraft(key: string): EditablePost | null {
@@ -53,6 +60,8 @@ function writeDraft(key: string, post: EditablePost | null) {
   }
 }
 
+const pathOf = (kind: Kind, slug: string, lang: 'en' | 'tr') => `${lang === 'tr' ? '/tr' : ''}/${kind === 'note' ? 'notes' : 'writing'}/${slug}`
+
 function envToText(env: Record<string, string>): string {
   return Object.entries(env)
     .map(([k, v]) => `${k}: ${v}`)
@@ -79,10 +88,10 @@ function slugify(text: string): string {
     .slice(0, 80)
 }
 
-type Props = { id: number | null; kind: Kind; onSaved: (id: number) => void }
+type Props = { id: number | null; kind: Kind; translateOf?: number; onSaved: (id: number) => void }
 
-export function Editor({ id, kind, onSaved }: Props) {
-  const [post, setPost] = useState<EditablePost | null>(id === null ? blank(kind) : null)
+export function Editor({ id, kind, translateOf, onSaved }: Props) {
+  const [post, setPost] = useState<EditablePost | null>(id === null && !translateOf ? blank(kind) : null)
   const [server, setServer] = useState<EditablePost | null>(null)
   const [version, setVersion] = useState(0)
   const [pendingDraft, setPendingDraft] = useState<EditablePost | null>(null)
@@ -92,15 +101,21 @@ export function Editor({ id, kind, onSaved }: Props) {
   const [tab, setTab] = useState<'write' | 'preview'>('write')
   const [showHistory, setShowHistory] = useState(false)
   const [envText, setEnvText] = useState('')
-  const [slugTouched, setSlugTouched] = useState(false)
+  // A translation keeps the slug of the original, so typing the title must not rewrite it.
+  const [slugTouched, setSlugTouched] = useState(!!translateOf)
+  // null until the post list has loaded: the translation control waits for it instead of guessing.
+  const [others, setOthers] = useState<PostSummary[] | null>(null)
+  const [othersError, setOthersError] = useState('')
+  const [pendingLang, setPendingLang] = useState<'en' | 'tr' | null>(null)
   const [preview, setPreview] = useState('')
   const insertRef = useRef<((text: string) => void) | null>(null)
-  const key = draftKey(id, kind)
+  const key = draftKey(id, kind, translateOf)
 
   useEffect(() => {
     const load = async () => {
-      const loaded = id === null ? blank(kind) : await api.get(id)
-      setServer(loaded)
+      const loaded = id !== null ? await api.get(id) : translateOf ? translationOf(await api.get(translateOf)) : blank(kind)
+      // Nothing is saved yet for a translation, so it counts as unsaved and Save draft stays available.
+      setServer(translateOf ? blank(loaded.kind) : loaded)
       setPost(loaded)
       setEnvText(envToText(loaded.note?.environment ?? {}))
       setVersion((v) => v + 1)
@@ -108,13 +123,21 @@ export function Editor({ id, kind, onSaved }: Props) {
       if (local && JSON.stringify(local) !== JSON.stringify(loaded)) setPendingDraft(local)
     }
     load().catch((e: Error) => setError(e.message))
-  }, [id, kind])
+  }, [id, kind, translateOf])
 
   // While the restore banner is open the stored draft is what it offers, so leave it alone.
   useEffect(() => {
     if (!post || !server || pendingDraft) return
     writeDraft(key, JSON.stringify(post) === JSON.stringify(server) ? null : post)
   }, [post, server, pendingDraft])
+
+  const savedId = server?.id ?? null
+  useEffect(() => {
+    if (savedId === null) return
+    setOthers(null)
+    setOthersError('')
+    api.list().then(setOthers, (e: Error) => setOthersError(e.message))
+  }, [savedId, server?.kind, server?.slug, server?.lang])
 
   const bodyMd = post?.body_md ?? ''
   useEffect(() => {
@@ -187,6 +210,7 @@ export function Editor({ id, kind, onSaved }: Props) {
   }
 
   const published = post.status === 'published'
+  const translation = server && savedId !== null ? others?.find((o) => o.id !== savedId && o.kind === server.kind && o.slug === server.slug && o.lang !== server.lang) : undefined
 
   return (
     <div class="editor">
@@ -256,7 +280,15 @@ export function Editor({ id, kind, onSaved }: Props) {
           </label>
           <label>
             Language
-            <select value={post.lang} onChange={(e) => set({ lang: e.currentTarget.value as 'en' | 'tr' })}>
+            <select
+              value={post.lang}
+              onChange={(e) => {
+                const lang = e.currentTarget.value as 'en' | 'tr'
+                // A live post that changes language moves URL, so ask first.
+                if (server?.id != null && server.status === 'published' && lang !== server.lang) setPendingLang(lang)
+                else set({ lang })
+              }}
+            >
               <option value="en">English</option>
               <option value="tr">Turkish</option>
             </select>
@@ -282,6 +314,25 @@ export function Editor({ id, kind, onSaved }: Props) {
             />
           </label>
         </div>
+
+        {pendingLang && server && (
+          <div class="banner" role="alert">
+            This post is published. Changing its language moves it from {pathOf(server.kind, server.slug, server.lang)} to {pathOf(post.kind, post.slug, pendingLang)}, and
+            the old URL will redirect (301) to the new one.
+            <button
+              type="button"
+              onClick={() => {
+                set({ lang: pendingLang })
+                setPendingLang(null)
+              }}
+            >
+              Change language
+            </button>
+            <button type="button" onClick={() => setPendingLang(null)}>
+              Keep {server.lang === 'en' ? 'English' : 'Turkish'}
+            </button>
+          </div>
+        )}
 
         {post.note && (
           <fieldset class="note-box">
@@ -344,6 +395,12 @@ export function Editor({ id, kind, onSaved }: Props) {
         <p class="state" role="status" aria-live="polite">
           {error ? <span class="error">{error}</span> : status || (dirty ? 'Unsaved changes' : published ? 'Published' : post.id ? 'Draft' : 'New')}
         </p>
+        {post.id !== null && othersError && <span class="error">Translations: {othersError}</span>}
+        {post.id !== null && others && (
+          <a class="button" href={translation ? `#/edit/${translation.id}` : `#/translate/${post.id}`}>
+            {translation ? 'Open translation' : 'Add translation'}
+          </a>
+        )}
         {post.id !== null && (
           <button type="button" onClick={() => setShowHistory(!showHistory)}>
             History

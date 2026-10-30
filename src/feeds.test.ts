@@ -31,4 +31,14 @@ describe('llmsTxt', () => {
     expect(txt).toContain('## Notes')
     expect(txt).not.toContain('## Writing')
   })
+
+  it('follows the llmstxt.org shape with Turkish sections named as such and links under /tr', () => {
+    const txt = llmsTxt('https://ismailtarim.dev', 'x', [note, { ...note, lang: 'tr', title: 'tmux renkleri' }])
+    expect(txt.match(/^# /gm)).toHaveLength(1)
+    expect(txt).toContain('## Notes')
+    expect(txt).toContain('## Notlar (Türkçe)')
+    expect(txt).not.toContain('## Yazılar (Türkçe)')
+    expect(txt).not.toContain('###')
+    expect(txt).toContain('(https://ismailtarim.dev/tr/notes/tmux-hex-colors)')
+  })
 })

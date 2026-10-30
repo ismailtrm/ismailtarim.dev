@@ -4,14 +4,15 @@ import { api, type Kind, type PostSummary } from './api'
 import { Editor } from './Editor'
 import { Stats } from './Stats'
 
-// Hash routes keep every panel URL on the one static index.html: #/, #/new/note, #/edit/12
-type Route = { name: 'list' } | { name: 'stats' } | { name: 'new'; kind: Kind } | { name: 'edit'; id: number }
+// Hash routes keep every panel URL on the one static index.html: #/, #/new/note, #/edit/12, #/translate/12
+type Route = { name: 'list' } | { name: 'stats' } | { name: 'new'; kind: Kind } | { name: 'edit'; id: number } | { name: 'translate'; id: number }
 
 function parse(hash: string): Route {
   const [, a, b] = hash.replace(/^#/, '').split('/')
   if (a === 'new' && (b === 'note' || b === 'writing')) return { name: 'new', kind: b }
   if (a === 'stats') return { name: 'stats' }
   if (a === 'edit' && b && /^\d+$/.test(b)) return { name: 'edit', id: Number(b) }
+  if (a === 'translate' && b && /^\d+$/.test(b)) return { name: 'translate', id: Number(b) }
   return { name: 'list' }
 }
 
@@ -41,6 +42,7 @@ function PostList() {
             <tr>
               <th scope="col">Title</th>
               <th scope="col">Kind</th>
+              <th scope="col">Lang</th>
               <th scope="col">Status</th>
               <th scope="col">Updated</th>
             </tr>
@@ -52,6 +54,7 @@ function PostList() {
                   <a href={`#/edit/${p.id}`}>{p.title}</a>
                 </td>
                 <td>{p.kind === 'note' ? 'Note' : 'Writing'}</td>
+                <td>{p.lang.toUpperCase()}</td>
                 <td>{p.status}</td>
                 <td>
                   <time>{p.updated_at.slice(0, 10)}</time>
@@ -91,6 +94,9 @@ function App() {
         {route.name === 'list' && <PostList />}
         {route.name === 'stats' && <Stats />}
         {route.name === 'new' && <Editor key={`new-${route.kind}`} id={null} kind={route.kind} onSaved={(id) => location.replace(`#/edit/${id}`)} />}
+        {route.name === 'translate' && (
+          <Editor key={`translate-${route.id}`} id={null} kind="note" translateOf={route.id} onSaved={(id) => location.replace(`#/edit/${id}`)} />
+        )}
         {route.name === 'edit' && <Editor key={`edit-${route.id}`} id={route.id} kind="note" onSaved={() => undefined} />}
       </main>
     </>

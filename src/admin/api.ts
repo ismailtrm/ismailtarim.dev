@@ -25,8 +25,8 @@ api.use(requireAccess())
 api.onError((err, c) => {
   if (err instanceof HTTPException) return err.getResponse()
   if (err instanceof ConflictError) return c.json({ error: err.message }, 409)
-  if (err.message.includes('UNIQUE constraint failed: posts.kind, posts.slug')) {
-    return c.json({ error: 'another post of this kind already uses this slug' }, 409)
+  if (err.message.includes('UNIQUE constraint failed: posts.kind, posts.lang, posts.slug')) {
+    return c.json({ error: 'another post of this kind and language already uses this slug' }, 409)
   }
   console.error(err)
   return c.json({ error: 'internal error' }, 500)

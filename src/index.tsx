@@ -4,8 +4,10 @@ import { html, raw } from 'hono/html'
 import type { HtmlEscapedString } from 'hono/utils/html'
 import { secureHeaders } from 'hono/secure-headers'
 import type { Env } from './env'
-import { findRedirect, getProjectCase, getPublishedPost, listByTag, listProjects, listPublished } from './db'
+import { findRedirect, getProjectCase, getPublishedPost, listByTag, listProjects, listPublished, listTranslations } from './db'
+import type { Lang } from './db'
 import { llmsTxt, rss, sitemap } from './feeds'
+import { homePath, langPrefix, otherLang, UI } from './i18n'
 import { safeRedirectTarget } from './redirect'
 import { Article, Layout, PostList, ProjectLedger } from './views'
 import adminApi from './admin/api'
@@ -83,119 +85,175 @@ function page(c: C, node: HtmlEscapedString | Promise<HtmlEscapedString>, status
   return c.html(html`<!DOCTYPE html>${node}`, status)
 }
 
-app.get('/', async (c) => {
-  const [posts, projects] = await Promise.all([listPublished(c.env.DB, null, 10), listProjects(c.env.DB)])
-  cache(c)
-  return page(
-    c,
-    <Layout title={c.env.SITE_NAME} canonical={site(c) + '/'} description="Backend and AI systems engineer in İzmir.">
-      <section class="intro">
-        <p>Backend and AI systems engineer in İzmir. Field notes, projects and essays.</p>
-      </section>
-      <section>
-        <h2>Recent</h2>
-        <PostList posts={posts} />
-      </section>
-      <section>
-        <h2>Projects</h2>
-        <ProjectLedger projects={projects.slice(0, 5)} />
-      </section>
-    </Layout>,
-  )
-})
+// Every public page exists under both prefixes; a post keeps the same slug in each language.
+const LANGS = [
+  ['', 'en'],
+  ['/tr', 'tr'],
+] as const
 
-for (const [path, kind, heading] of [
-  ['/writing', 'writing', 'Writing'],
-  ['/notes', 'note', 'Notes'],
-] as const) {
-  app.get(path, async (c) => {
-    const posts = await listPublished(c.env.DB, kind, 200)
-    cache(c)
-    return page(
-      c,
-      <Layout title={`${heading}, ${c.env.SITE_NAME}`} canonical={site(c) + path}>
-        <h1>{heading}</h1>
-        <PostList posts={posts} />
-      </Layout>,
-    )
-  })
+// Absolute URLs of one page in both languages, for hreflang and the language switch.
+function bothLangs(c: C, path: (lang: Lang) => string): Partial<Record<Lang, string>> {
+  return { en: site(c) + path('en'), tr: site(c) + path('tr') }
+}
 
-  app.get(`${path}/:slug{${SLUG}}`, async (c) => {
-    const post = await getPublishedPost(c.env.DB, kind, c.req.param('slug'))
-    if (!post) return c.notFound()
+function pageLang(c: C): Lang {
+  return /^\/tr(\/|$)/.test(c.req.path) ? 'tr' : 'en'
+}
+
+for (const [pre, lang] of LANGS) {
+  const ui = UI[lang]
+
+  app.get(pre || '/', async (c) => {
+    const [posts, projects] = await Promise.all([listPublished(c.env.DB, lang, null, 10), listProjects(c.env.DB)])
     cache(c)
     return page(
       c,
       <Layout
-        title={`${post.title}, ${c.env.SITE_NAME}`}
-        canonical={site(c) + `${path}/${post.slug}`}
-        lang={post.lang}
-        {...(post.summary ? { description: post.summary } : {})}
+        title={c.env.SITE_NAME}
+        canonical={site(c) + homePath(lang)}
+        alternates={bothLangs(c, homePath)}
+        lang={lang}
+        description={ui.tagline}
       >
-        <Article post={post} />
+        <section class="intro">
+          <p>{ui.intro}</p>
+        </section>
+        <section>
+          <h2>{ui.recent}</h2>
+          <PostList posts={posts} lang={lang} />
+        </section>
+        <section>
+          <h2>{ui.projects}</h2>
+          <ProjectLedger projects={projects.slice(0, 5)} lang={lang} />
+        </section>
       </Layout>,
     )
   })
+
+  for (const [section, kind, heading] of [
+    ['/writing', 'writing', ui.writing],
+    ['/notes', 'note', ui.notes],
+  ] as const) {
+    const path = pre + section
+
+    app.get(path, async (c) => {
+      const posts = await listPublished(c.env.DB, lang, kind, 200)
+      cache(c)
+      return page(
+        c,
+        <Layout title={`${heading}, ${c.env.SITE_NAME}`} canonical={site(c) + path} alternates={bothLangs(c, (l) => langPrefix(l) + section)} lang={lang}>
+          <h1>{heading}</h1>
+          <PostList posts={posts} lang={lang} />
+        </Layout>,
+      )
+    })
+
+    app.get(`${path}/:slug{${SLUG}}`, async (c) => {
+      const post = await getPublishedPost(c.env.DB, lang, kind, c.req.param('slug'))
+      if (!post) return c.notFound()
+      const translations = await listTranslations(c.env.DB, kind, post.slug)
+      cache(c)
+      return page(
+        c,
+        <Layout
+          title={`${post.title}, ${c.env.SITE_NAME}`}
+          canonical={site(c) + `${path}/${post.slug}`}
+          alternates={translations.length > 1 ? bothLangs(c, (l) => `${langPrefix(l)}${section}/${post.slug}`) : {}}
+          lang={post.lang}
+          {...(post.summary ? { description: post.summary } : {})}
+        >
+          <Article post={post} />
+        </Layout>,
+      )
+    })
+  }
+
+  app.get(`${pre}/tags/:tag{${SLUG}}`, async (c) => {
+    const [found, inOther] = await Promise.all([
+      listByTag(c.env.DB, lang, c.req.param('tag')),
+      listByTag(c.env.DB, otherLang(lang), c.req.param('tag')),
+    ])
+    if (!found) return c.notFound()
+    cache(c)
+    return page(
+      c,
+      <Layout
+        title={`#${found.tag.name}, ${c.env.SITE_NAME}`}
+        canonical={site(c) + `${pre}/tags/${found.tag.slug}`}
+        alternates={inOther ? bothLangs(c, (l) => `${langPrefix(l)}/tags/${found.tag.slug}`) : {}}
+        lang={lang}
+      >
+        <h1>#{found.tag.name}</h1>
+        <PostList posts={found.posts} lang={lang} />
+      </Layout>,
+    )
+  })
+
+  // Projects are single-language for now: the Turkish pages show the English project data in Turkish chrome,
+  // so they declare no hreflang and are noindex until projects get translations.
+  app.get(`${pre}/projects`, async (c) => {
+    const projects = await listProjects(c.env.DB)
+    cache(c)
+    return page(
+      c,
+      <Layout
+        title={`${ui.projects}, ${c.env.SITE_NAME}`}
+        canonical={site(c) + `${pre}/projects`}
+        switchTo={`${langPrefix(otherLang(lang))}/projects`}
+        noindex={lang === 'tr'}
+        lang={lang}
+      >
+        <h1>{ui.projects}</h1>
+        <ProjectLedger projects={projects} lang={lang} />
+      </Layout>,
+    )
+  })
+
+  app.get(`${pre}/projects/:slug{${SLUG}}`, async (c) => {
+    const slug = c.req.param('slug')
+    const project = await getProjectCase(c.env.DB, slug)
+    if (!project) return c.notFound()
+    cache(c)
+    return page(
+      c,
+      <Layout
+        title={`${project.name}, ${c.env.SITE_NAME}`}
+        canonical={site(c) + `${pre}/projects/${slug}`}
+        switchTo={`${langPrefix(otherLang(lang))}/projects/${slug}`}
+        noindex={lang === 'tr'}
+        lang={lang}
+        description={project.summary}
+      >
+        <article class="post">
+          <h1>{project.name}</h1>
+          <p class="muted">{project.summary}</p>
+          <div class="prose">{raw(project.case_html)}</div>
+        </article>
+      </Layout>,
+    )
+  })
+
+  app.get(`${pre}/rss.xml`, async (c) => {
+    const posts = await listPublished(c.env.DB, lang, null, 50)
+    cache(c)
+    return c.body(rss(site(c), c.env.SITE_NAME, posts, lang), 200, { 'Content-Type': 'application/rss+xml; charset=utf-8' })
+  })
 }
 
-app.get(`/tags/:tag{${SLUG}}`, async (c) => {
-  const found = await listByTag(c.env.DB, c.req.param('tag'))
-  if (!found) return c.notFound()
-  cache(c)
-  return page(
-    c,
-    <Layout title={`#${found.tag.name}, ${c.env.SITE_NAME}`} canonical={site(c) + `/tags/${found.tag.slug}`}>
-      <h1>#{found.tag.name}</h1>
-      <PostList posts={found.posts} />
-    </Layout>,
-  )
-})
-
-app.get('/projects', async (c) => {
-  const projects = await listProjects(c.env.DB)
-  cache(c)
-  return page(
-    c,
-    <Layout title={`Projects, ${c.env.SITE_NAME}`} canonical={site(c) + '/projects'}>
-      <h1>Projects</h1>
-      <ProjectLedger projects={projects} />
-    </Layout>,
-  )
-})
-
-app.get(`/projects/:slug{${SLUG}}`, async (c) => {
-  const slug = c.req.param('slug')
-  const project = await getProjectCase(c.env.DB, slug)
-  if (!project) return c.notFound()
-  cache(c)
-  return page(
-    c,
-    <Layout title={`${project.name}, ${c.env.SITE_NAME}`} canonical={site(c) + `/projects/${slug}`} description={project.summary}>
-      <article class="post">
-        <h1>{project.name}</h1>
-        <p class="muted">{project.summary}</p>
-        <div class="prose">{raw(project.case_html)}</div>
-      </article>
-    </Layout>,
-  )
-})
-
-app.get('/rss.xml', async (c) => {
-  const posts = await listPublished(c.env.DB, null, 50)
-  cache(c)
-  return c.body(rss(site(c), c.env.SITE_NAME, posts), 200, { 'Content-Type': 'application/rss+xml; charset=utf-8' })
-})
-
 app.get('/sitemap.xml', async (c) => {
-  const [posts, projects] = await Promise.all([listPublished(c.env.DB, null, 5000), listProjects(c.env.DB)])
+  const [en, tr, projects] = await Promise.all([
+    listPublished(c.env.DB, 'en', null, 5000),
+    listPublished(c.env.DB, 'tr', null, 5000),
+    listProjects(c.env.DB),
+  ])
   cache(c)
-  return c.body(sitemap(site(c), posts, projects), 200, { 'Content-Type': 'application/xml; charset=utf-8' })
+  return c.body(sitemap(site(c), [...en, ...tr], projects), 200, { 'Content-Type': 'application/xml; charset=utf-8' })
 })
 
 app.get('/llms.txt', async (c) => {
-  const posts = await listPublished(c.env.DB, null, 1000)
+  const [en, tr] = await Promise.all([listPublished(c.env.DB, 'en', null, 1000), listPublished(c.env.DB, 'tr', null, 1000)])
   cache(c)
-  return c.text(llmsTxt(site(c), c.env.SITE_NAME, posts))
+  return c.text(llmsTxt(site(c), c.env.SITE_NAME, [...en, ...tr]))
 })
 
 app.notFound(async (c) => {
@@ -204,12 +262,19 @@ app.notFound(async (c) => {
     const to = safeRedirectTarget(from, await findRedirect(c.env.DB, from))
     if (to) return c.redirect(to + new URL(c.req.url).search, 301)
   }
+  const lang = pageLang(c)
+  const ui = UI[lang]
+  const pre = langPrefix(lang)
   return page(
     c,
-    <Layout title={`Not found, ${c.env.SITE_NAME}`}>
-      <h1>Not found</h1>
+    <Layout title={`${ui.notFoundTitle}, ${c.env.SITE_NAME}`} lang={lang}>
+      <h1>{ui.notFoundTitle}</h1>
       <p>
-        This page does not exist. Try <a href="/notes">Notes</a> or <a href="/writing">Writing</a>.
+        {ui.notFoundBefore}
+        <a href={`${pre}/notes`}>{ui.notes}</a>
+        {ui.notFoundOr}
+        <a href={`${pre}/writing`}>{ui.writing}</a>
+        {ui.notFoundAfter}
       </p>
     </Layout>,
     404,
@@ -218,11 +283,13 @@ app.notFound(async (c) => {
 
 app.onError((err, c) => {
   console.error(err)
+  const lang = pageLang(c)
+  const ui = UI[lang]
   return page(
     c,
-    <Layout title={`Error, ${c.env.SITE_NAME}`}>
-      <h1>Something broke</h1>
-      <p>The page could not be loaded. Try again in a minute.</p>
+    <Layout title={`${ui.errorTitle}, ${c.env.SITE_NAME}`} lang={lang}>
+      <h1>{ui.errorHeading}</h1>
+      <p>{ui.errorBody}</p>
     </Layout>,
     500,
   )

@@ -8,12 +8,13 @@ export type AdminPostSummary = {
   kind: 'writing' | 'note'
   slug: string
   title: string
+  lang: 'en' | 'tr'
   status: string
   published_at: string | null
   updated_at: string
 }
 
-type ExistingPost = { id: number; kind: 'writing' | 'note'; slug: string; status: string; revision: number | null }
+type ExistingPost = { id: number; kind: 'writing' | 'note'; slug: string; lang: 'en' | 'tr'; status: string; revision: number | null }
 
 export class ConflictError extends Error {}
 
@@ -22,7 +23,7 @@ const GUARD = 'stale revision'
 
 export async function listAllPosts(db: D1Database): Promise<AdminPostSummary[]> {
   const { results } = await db
-    .prepare('SELECT id, kind, slug, title, status, published_at, updated_at FROM posts ORDER BY updated_at DESC')
+    .prepare('SELECT id, kind, slug, title, lang, status, published_at, updated_at FROM posts ORDER BY updated_at DESC')
     .all<AdminPostSummary>()
   return results
 }
@@ -49,6 +50,16 @@ export async function getPostForEdit(db: D1Database, id: number) {
   }
 }
 
+// Old paths keep working: the old path now points at the new one, earlier redirects into the old path
+// are retargeted instead of chained, and a redirect still sitting on the new path is dropped.
+function moveRedirects(db: D1Database, oldPath: string, newPath: string): D1PreparedStatement[] {
+  return [
+    db.prepare('INSERT INTO redirects (from_path, to_path) VALUES (?, ?) ON CONFLICT (from_path) DO UPDATE SET to_path = excluded.to_path').bind(oldPath, newPath),
+    db.prepare('UPDATE redirects SET to_path = ? WHERE to_path = ? AND from_path <> ?').bind(newPath, oldPath, newPath),
+    db.prepare('DELETE FROM redirects WHERE from_path = ?').bind(newPath),
+  ]
+}
+
 function nowIso(): string {
   return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z')
 }
@@ -69,10 +80,10 @@ export async function savePost(db: D1Database, id: number | null, input: PostInp
         )
         .bind(input.kind, input.slug, input.title, input.summary, input.lang, input.status, input.body_md, input.body_html, publishedAt),
     )
-    ref = { sql: '(SELECT id FROM posts WHERE kind = ? AND slug = ?)', binds: [input.kind, input.slug] }
+    ref = { sql: '(SELECT id FROM posts WHERE kind = ? AND lang = ? AND slug = ?)', binds: [input.kind, input.lang, input.slug] }
   } else {
     const existing = await db
-      .prepare('SELECT id, kind, slug, status, (SELECT MAX(r.id) FROM revisions r WHERE r.post_id = posts.id) AS revision FROM posts WHERE id = ?')
+      .prepare('SELECT id, kind, slug, lang, status, (SELECT MAX(r.id) FROM revisions r WHERE r.post_id = posts.id) AS revision FROM posts WHERE id = ?')
       .bind(id)
       .first<ExistingPost>()
     if (!existing) throw new ConflictError('post no longer exists')
@@ -92,16 +103,40 @@ export async function savePost(db: D1Database, id: number | null, input: PostInp
         )
         .bind(input.kind, input.slug, input.title, input.summary, input.lang, input.status, input.body_md, input.body_html, publishedAt, nowIso(), id),
     )
-    const oldPath = postPath(existing.kind, existing.slug)
-    const newPath = postPath(input.kind, input.slug)
-    if (oldPath !== newPath && existing.status === 'published') {
-      stmts.push(
-        db.prepare('INSERT INTO redirects (from_path, to_path) VALUES (?, ?) ON CONFLICT (from_path) DO UPDATE SET to_path = excluded.to_path').bind(oldPath, newPath),
-        // Earlier redirects into the old path now point at the new one instead of chaining.
-        db.prepare('UPDATE redirects SET to_path = ? WHERE to_path = ? AND from_path <> ?').bind(newPath, oldPath, newPath),
-        db.prepare('DELETE FROM redirects WHERE from_path = ?').bind(newPath),
-      )
+    // The path carries the /tr prefix, so changing the language moves the post like a slug change does.
+    const oldPath = postPath(existing.kind, existing.slug, existing.lang)
+    const newPath = postPath(input.kind, input.slug, input.lang)
+    if (oldPath !== newPath && existing.status === 'published') stmts.push(...moveRedirects(db, oldPath, newPath))
+
+    // A live post that keeps its language and kind but changes slug takes its translation along, so the pair stays linked.
+    // A draft (for example a fresh translation) renaming itself must not drag a published original with it.
+    if (existing.status === 'published' && input.kind === existing.kind && input.lang === existing.lang && input.slug !== existing.slug) {
+      const sibling = await db
+        .prepare('SELECT id, lang, status FROM posts WHERE kind = ? AND slug = ? AND lang <> ?')
+        .bind(existing.kind, existing.slug, existing.lang)
+        .first<{ id: number; lang: 'en' | 'tr'; status: string }>()
+      if (sibling) {
+        stmts.push(
+          db.prepare('UPDATE posts SET slug = ? WHERE id = ?').bind(input.slug, sibling.id),
+          // A revision makes an editor still open on the sibling conflict instead of saving the old slug back.
+          db
+            .prepare(
+              `INSERT INTO revisions (post_id, title, body_md, meta_json, reason)
+               SELECT id, title, body_md, json_object('kind', kind, 'slug', slug, 'summary', summary, 'lang', lang, 'status', status), 'save'
+               FROM posts WHERE id = ?`,
+            )
+            .bind(sibling.id),
+        )
+        if (sibling.status === 'published') {
+          stmts.push(...moveRedirects(db, postPath(existing.kind, existing.slug, sibling.lang), postPath(existing.kind, input.slug, sibling.lang)))
+        }
+      }
     }
+  }
+
+  // A redirect left on a path that is live again would come back to life when the post is unpublished.
+  if (input.status === 'published') {
+    stmts.push(db.prepare('DELETE FROM redirects WHERE from_path = ?').bind(postPath(input.kind, input.slug, input.lang)))
   }
 
   stmts.push(db.prepare(`DELETE FROM post_tags WHERE post_id = ${ref.sql}`).bind(...ref.binds))

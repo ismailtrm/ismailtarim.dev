@@ -47,11 +47,11 @@ export function classifyAgent(ua: string | null | undefined): { cls: ClientClass
   return { cls: 'human', agent: 'browser' }
 }
 
-// Only canonical page and feed paths are counted. The path is the one Hono routed on (already
-// percent-decoded), so /notes/%61bc and /notes/abc land on one row instead of inventing new ones.
+// Only canonical page and feed paths are counted, English at the root and Turkish under /tr.
+// The path is the one Hono routed on (already percent-decoded), so /notes/%61bc and /notes/abc land on one row instead of inventing new ones.
 const SLUGGED = '[a-z0-9-]{1,120}'
 const COUNTED = new RegExp(
-  `^/(?:|notes|writing|projects|(?:notes|writing|projects|tags)/${SLUGGED}|rss\\.xml|sitemap\\.xml|llms\\.txt|robots\\.txt)$`,
+  `^(?:/(?:tr)?|(?:/tr)?/(?:notes|writing|projects|(?:notes|writing|projects|tags)/${SLUGGED}|rss\\.xml)|/(?:sitemap\\.xml|llms\\.txt|robots\\.txt))$`,
 )
 
 // Redirects (301) and errors are not counted; a client that follows a redirect is counted at the new URL.
