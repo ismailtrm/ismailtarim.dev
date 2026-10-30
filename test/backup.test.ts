@@ -52,7 +52,8 @@ describe('backupDatabase', () => {
 
   it('does nothing without a token', async () => {
     const api = exportApi()
-    await backupDatabase({ ...e, D1_EXPORT_TOKEN: undefined } as Env, new Date(), api.impl, noWait)
+    const { D1_EXPORT_TOKEN: _token, ...withoutToken } = e
+    await backupDatabase(withoutToken, new Date(), api.impl, noWait)
     expect(api.calls).toEqual([])
   })
 
