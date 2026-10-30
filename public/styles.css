@@ -197,3 +197,21 @@ body.admin > * { max-width: 1280px; }
 
 /* admin stats tables */
 .admin caption { text-align: left; font-weight: 600; margin: 1.5rem 0 0.5rem; }
+
+/* Diagrams: inline SVG in a post, coloured by class so both themes recolour it (no inline style under the CSP). */
+.prose figure.diagram { margin: 1.5rem 0; overflow-x: auto; }
+/* Below this width the text would shrink past legibility; scroll instead. */
+.prose figure.diagram svg { display: block; width: 100%; min-width: 560px; height: auto; }
+.prose figure.diagram figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 6px; }
+.diagram-svg .d-label { fill: var(--muted); font: 600 12px var(--sans); }
+.diagram-svg .d-text { fill: var(--fg); font: 13px var(--mono); }
+.diagram-svg .d-small { fill: var(--muted); font: 11px var(--mono); }
+.diagram-svg .d-box { fill: none; stroke: var(--rule); stroke-width: 1.5; }
+.diagram-svg .d-frame { fill: none; stroke: var(--rule); stroke-dasharray: 4 4; }
+.diagram-svg .d-box-bad { stroke: var(--t9); }
+.diagram-svg .d-box-fix { stroke: var(--t3); }
+.diagram-svg .d-bad { stroke: var(--t9); stroke-width: 1.5; }
+.diagram-svg .d-ok { stroke: var(--t3); stroke-width: 1.5; }
+.diagram-svg .d-head { fill: var(--muted); }
+.diagram-svg .d-bad-text { fill: var(--t9); }
+.diagram-svg .d-ok-text { fill: var(--t3); }
