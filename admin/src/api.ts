@@ -26,6 +26,14 @@ export type EditablePost = {
 export type Revision = { id: number; title: string; reason: string; created_at: string }
 export type RevisionDetail = Revision & { body_md: string; meta_json: string | null }
 
+export type ClientClass = 'human' | 'ai' | 'search' | 'bot'
+export type Stats = {
+  since: string
+  byPath: { path: string; client_class: ClientClass; reads: number }[]
+  byAgent: { client_class: ClientClass; agent: string; reads: number }[]
+  byCountry: { country: string; client_class: ClientClass; reads: number }[]
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -55,6 +63,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   list: () => call<PostSummary[]>('/posts'),
+  stats: (days: number) => call<Stats>(`/stats?days=${days}`),
   get: (id: number) => call<EditablePost>(`/posts/${id}`),
   save: (post: EditablePost, bodyHtml: string, reason: 'save' | 'publish' | 'restore') => {
     const { id, revision, ...fields } = post

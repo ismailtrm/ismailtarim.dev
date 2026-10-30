@@ -3,6 +3,7 @@ import { bodyLimit } from 'hono/body-limit'
 import { csrf } from 'hono/csrf'
 import { HTTPException } from 'hono/http-exception'
 import type { Env } from '../env'
+import { readStats, rollupRecent } from '../stats'
 import { requireAccess } from './access'
 import { postInput } from './schema'
 import { ConflictError, getPostForEdit, getRevision, listAllPosts, listRevisions, savePost } from './store'
@@ -37,6 +38,25 @@ function id(raw: string): number | null {
 }
 
 api.get('/posts', async (c) => c.json(await listAllPosts(c.env.DB)))
+
+api.get('/stats', async (c) => {
+  const days = clampDays(c.req.query('days'), 30, 3650)
+  const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
+  return c.json(await readStats(c.env.DB, since))
+})
+
+// Re-copies past days from Analytics Engine, which keeps raw events for about 90 days.
+// The nightly job covers only the last 3, so this is how older days get in (first token, missed nights).
+api.post('/stats/rollup', async (c) => {
+  if (!c.env.AE_API_TOKEN) return c.json({ error: 'AE_API_TOKEN is not set' }, 409)
+  await rollupRecent(c.env, new Date(), clampDays(c.req.query('days'), 3, 90))
+  return c.json({ ok: true })
+})
+
+function clampDays(raw: string | undefined, fallback: number, max: number): number {
+  const n = Math.trunc(Number(raw ?? fallback))
+  return Number.isFinite(n) ? Math.min(Math.max(n, 1), max) : fallback
+}
 
 api.get('/posts/:id', async (c) => {
   const postId = id(c.req.param('id'))

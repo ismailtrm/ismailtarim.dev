@@ -2,13 +2,15 @@ import { render } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
 import { api, type Kind, type PostSummary } from './api'
 import { Editor } from './Editor'
+import { Stats } from './Stats'
 
 // Hash routes keep every panel URL on the one static index.html: #/, #/new/note, #/edit/12
-type Route = { name: 'list' } | { name: 'new'; kind: Kind } | { name: 'edit'; id: number }
+type Route = { name: 'list' } | { name: 'stats' } | { name: 'new'; kind: Kind } | { name: 'edit'; id: number }
 
 function parse(hash: string): Route {
   const [, a, b] = hash.replace(/^#/, '').split('/')
   if (a === 'new' && (b === 'note' || b === 'writing')) return { name: 'new', kind: b }
+  if (a === 'stats') return { name: 'stats' }
   if (a === 'edit' && b && /^\d+$/.test(b)) return { name: 'edit', id: Number(b) }
   return { name: 'list' }
 }
@@ -79,6 +81,7 @@ function App() {
         </a>
         <nav aria-label="Admin">
           <a href="#/">Posts</a>
+          <a href="#/stats">Stats</a>
           <a href="/" target="_blank" rel="noopener">
             View site
           </a>
@@ -86,6 +89,7 @@ function App() {
       </header>
       <main class="admin-main">
         {route.name === 'list' && <PostList />}
+        {route.name === 'stats' && <Stats />}
         {route.name === 'new' && <Editor key={`new-${route.kind}`} id={null} kind={route.kind} onSaved={(id) => location.replace(`#/edit/${id}`)} />}
         {route.name === 'edit' && <Editor key={`edit-${route.id}`} id={route.id} kind="note" onSaved={() => undefined} />}
       </main>

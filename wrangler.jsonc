@@ -36,6 +36,10 @@
     { "binding": "MEDIA", "bucket_name": "ismailtarim-media" }
   ],
 
+  // Every counted read is one Analytics Engine data point; a nightly cron copies yesterday into D1 (read_daily).
+  "analytics_engine_datasets": [{ "binding": "READS", "dataset": "site_reads" }],
+  "triggers": { "crons": ["17 2 * * *"] },
+
   // Non-secret settings. Secrets (D1 export token, Access audience) go through `wrangler secret put`.
   "vars": {
     "SITE_URL": "https://ismailtarim.dev",
@@ -46,6 +50,7 @@
     // /admin is a Cloudflare Access app; the Worker re-checks its JWT against these.
     "ACCESS_TEAM_DOMAIN": "https://solitary-leaf-fa02.cloudflareaccess.com",
     "ACCESS_AUD": "13143e40f4537fb1d09362774c5b7a6532c51cc736b6de4ac4a1670f648f5453",
-    "ADMIN_EMAIL": "ismailtarim7@gmail.com"
+    "ADMIN_EMAIL": "ismailtarim7@gmail.com",
+    "CF_ACCOUNT_ID": "1b092233c0d88ae1268831d32cceed9b"
   }
 }

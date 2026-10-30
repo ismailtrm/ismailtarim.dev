@@ -194,3 +194,6 @@ body.admin > * { max-width: 1280px; }
 }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* admin stats tables */
+.admin caption { text-align: left; font-weight: 600; margin: 1.5rem 0 0.5rem; }

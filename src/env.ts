@@ -10,6 +10,11 @@ export type Env = {
   ACCESS_TEAM_DOMAIN: string
   ACCESS_AUD: string
   ADMIN_EMAIL: string
+  // Read counting (src/stats.ts). READS is the Analytics Engine dataset; the token, with
+  // Account Analytics Read, lets the nightly job query it. Without the token the job does nothing.
+  READS?: AnalyticsEngineDataset
+  CF_ACCOUNT_ID: string
+  AE_API_TOKEN?: string
   // Set only in .dev.vars; see src/admin/access.ts.
   ADMIN_DEV_BYPASS?: string
 }

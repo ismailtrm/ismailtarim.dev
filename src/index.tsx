@@ -9,6 +9,7 @@ import { llmsTxt, rss, sitemap } from './feeds'
 import { safeRedirectTarget } from './redirect'
 import { Article, Layout, PostList, ProjectLedger } from './views'
 import adminApi from './admin/api'
+import { recordRead, rollupRecent } from './stats'
 
 type C = Context<{ Bindings: Env }>
 
@@ -33,7 +34,25 @@ app.use(
   }),
 )
 
+app.use(async (c, next) => {
+  await next()
+  // Counting must never cost a reader the page.
+  try {
+    recordRead(c.env, c.req.raw, c.req.path, c.res.status)
+  } catch (e) {
+    console.error('recordRead', e)
+  }
+})
+
 app.route('/admin/api', adminApi)
+
+// Crawlers are welcome, AI ones included: the notes exist to be found. /admin is behind Access anyway.
+app.get('/robots.txt', (c) => {
+  cache(c)
+  return c.text(
+    `User-Agent: *\nContent-Signal: search=yes, ai-input=yes, ai-train=yes\nAllow: /\nDisallow: /admin\n\nSitemap: ${site(c)}/sitemap.xml\n`,
+  )
+})
 
 // Uploaded images. Keys carry a random UUID, so a key never changes content and can be cached for a year.
 // SVG uploads are refused (src/admin/api.ts): served from this origin they could run script.
@@ -209,4 +228,9 @@ app.onError((err, c) => {
   )
 })
 
-export default app
+export default {
+  fetch: app.fetch,
+  async scheduled(_event: ScheduledController, env: Env) {
+    await rollupRecent(env)
+  },
+} satisfies ExportedHandler<Env>
