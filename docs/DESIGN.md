@@ -61,7 +61,7 @@ Sistem tercihine uyar; köşede elle değiştirme düğmesi, seçim tarayıcıda
 
 - Başlıkta tam yol: `~/ismail/projects/stox`; her parça tıklanır.
 - Üst menü her sayfada: Projects, Notes, Writing, Awards, About, dil seçici ve tema düğmesi. O dilde yayını olmayan Notes ve Writing menüde görünmez.
-- Altbilgi: RSS, `@ismailtrm`, LinkedIn, e-posta, telif satırı.
+- Altbilgi: RSS, GitHub, LinkedIn, e-posta, telif satırı.
 
 ## Tek ızgara ve tek liste
 

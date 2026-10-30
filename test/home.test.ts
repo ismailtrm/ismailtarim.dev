@@ -362,9 +362,9 @@ describe('/about', () => {
     expect(await (await get('/sitemap.xml')).text()).not.toContain('/tr/about')
   })
 
-  it('shows the GitHub profile link as its handle', async () => {
+  it('labels profile links with their name from the panel', async () => {
     await saveProfile(db, 'en', profile())
-    expect(await (await get('/about')).text()).toContain('<a href="https://github.com/ismailtrm">@ismailtrm</a>')
+    expect(await (await get('/about')).text()).toContain('<a href="https://github.com/ismailtrm">GitHub</a>')
   })
 
   it('sends a reader to the home page while there is no profile', async () => {
