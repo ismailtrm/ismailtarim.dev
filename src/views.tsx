@@ -22,10 +22,12 @@ type LayoutProps = {
   noindex?: boolean
   // The home page uses a wider container for its two columns.
   wide?: boolean
+  // The site section this page belongs to, shown after the name as a path.
+  section?: 'writing' | 'notes' | 'projects'
   children: Child
 }
 
-export function Layout({ title, description, lang = 'en', canonical, alternates, switchTo, noindex, wide, children }: LayoutProps) {
+export function Layout({ title, description, lang = 'en', canonical, alternates, switchTo, noindex, wide, section, children }: LayoutProps) {
   const ui = UI[lang]
   const pre = langPrefix(lang)
   const other = otherLang(lang)
@@ -60,9 +62,16 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
       </head>
       <body class={wide ? 'wide' : undefined}>
         <header class="site-header">
-          <a class="wordmark" href={homePath(lang)} aria-label={ui.home}>
-            <span class="accent">~/</span>ismail
-          </a>
+          <span class="site-path">
+            <a class="wordmark" href={homePath(lang)} aria-label={ui.home}>
+              <span class="accent">~/</span>ismail
+            </a>
+            {section ? (
+              <a class="wordmark crumb" href={`${pre}/${section}`}>
+                /{section}
+              </a>
+            ) : null}
+          </span>
           <nav aria-label={ui.mainNav}>
             <a href={`${pre}/writing`}>{ui.writing}</a>
             <a href={`${pre}/notes`}>{ui.notes}</a>

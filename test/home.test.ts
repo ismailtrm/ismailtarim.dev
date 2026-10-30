@@ -221,6 +221,13 @@ describe('public home', () => {
     expect(await (await get('/')).text()).toContain('href="mailto:me@example.com"')
   })
 
+  it('shows the section after the name on section pages only', async () => {
+    expect(await (await get('/writing')).text()).toContain('class="wordmark crumb" href="/writing"')
+    expect(await (await get('/tr/notes')).text()).toContain('class="wordmark crumb" href="/tr/notes"')
+    expect(await (await get('/projects')).text()).toContain('class="wordmark crumb" href="/projects"')
+    expect(await (await get('/')).text()).not.toContain('wordmark crumb')
+  })
+
   it('filters unsafe link and badge urls', async () => {
     await db
       .prepare("INSERT INTO profile (lang, name, body_html, links, badges) VALUES ('en', 'N', '<p>x</p>', ?, ?)")

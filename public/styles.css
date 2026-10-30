@@ -42,7 +42,12 @@ body {
   font: 400 17px/1.6 var(--sans);
   padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
 }
-body > * { max-width: 760px; margin-inline: auto; }
+body > * { width: 100%; max-width: 1040px; margin-inline: auto; }
+/* Keeps the footer at the bottom of short pages. */
+body:not(.admin) { min-height: 100dvh; display: flex; flex-direction: column; }
+body:not(.admin) > main { flex: 1; }
+/* Header and footer keep one width everywhere; only the reading column is narrower. */
+body:not(.admin, .wide) > main > * { max-width: 760px; }
 h1, h2, h3 { font-weight: 600; line-height: 1.2; text-wrap: balance; }
 h1 { font-size: 1.9rem; margin: 0.4rem 0 1rem; }
 h2 { font-size: 1rem; color: var(--muted); margin: 2.5rem 0 0.8rem; }
@@ -66,13 +71,14 @@ a:hover { color: var(--accent); }
 }
 .wordmark { font-weight: 500; font-size: 1.05rem; text-decoration: none; }
 .wordmark .accent { color: var(--accent); }
+.wordmark.crumb { color: var(--muted); }
+.wordmark.crumb:hover { color: var(--accent); }
 .site-header nav { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
 .theme-toggle {
   font: inherit; background: none; color: var(--muted); border: 1px solid var(--rule);
   border-radius: 6px; padding: 0 8px; cursor: pointer;
 }
 main { padding-block: 24px 48px; }
-body.wide > * { max-width: 1040px; }
 .intro p { font-size: 1.15rem; max-width: var(--measure); }
 
 .post-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }

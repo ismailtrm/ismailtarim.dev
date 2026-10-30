@@ -159,13 +159,14 @@ for (const [pre, lang] of LANGS) {
     ['/notes', 'note', ui.notes],
   ] as const) {
     const path = pre + section
+    const sectionName = section === '/writing' ? 'writing' : 'notes'
 
     app.get(path, async (c) => {
       const posts = await listPublished(c.env.DB, lang, kind, 200)
       cache(c)
       return page(
         c,
-        <Layout title={`${heading}, ${c.env.SITE_NAME}`} canonical={site(c) + path} alternates={bothLangs(c, (l) => langPrefix(l) + section)} lang={lang}>
+        <Layout title={`${heading}, ${c.env.SITE_NAME}`} canonical={site(c) + path} alternates={bothLangs(c, (l) => langPrefix(l) + section)} lang={lang} section={sectionName}>
           <h1>{heading}</h1>
           <PostList posts={posts} lang={lang} />
         </Layout>,
@@ -184,6 +185,7 @@ for (const [pre, lang] of LANGS) {
           canonical={site(c) + `${path}/${post.slug}`}
           alternates={translations.length > 1 ? bothLangs(c, (l) => `${langPrefix(l)}${section}/${post.slug}`) : {}}
           lang={post.lang}
+          section={sectionName}
           {...(post.summary ? { description: post.summary } : {})}
         >
           <Article post={post} />
@@ -226,6 +228,7 @@ for (const [pre, lang] of LANGS) {
         switchTo={`${langPrefix(otherLang(lang))}/projects`}
         noindex={lang === 'tr'}
         lang={lang}
+        section="projects"
       >
         <h1>{ui.projects}</h1>
         <ProjectLedger projects={projects} lang={lang} />
@@ -246,6 +249,7 @@ for (const [pre, lang] of LANGS) {
         switchTo={`${langPrefix(otherLang(lang))}/projects/${slug}`}
         noindex={lang === 'tr'}
         lang={lang}
+        section="projects"
         description={project.summary}
       >
         <article class="post">
