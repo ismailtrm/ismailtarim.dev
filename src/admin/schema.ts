@@ -74,6 +74,8 @@ export const projectInput = z
     year: z.number().int().min(1970).max(2100),
     status: z.enum(['merged', 'under_review', 'submitted', 'published', 'personal']),
     status_label: z.string().trim().max(60).nullable().default(null),
+    role: z.string().trim().max(120),
+    team: z.string().trim().max(200),
     case_md: z.string().max(400_000).nullable(),
     case_html: z.string().max(1_000_000).nullable(),
     sort_order: z.number().int().min(-100_000).max(100_000),
@@ -106,6 +108,8 @@ export const achievementInput = z.object({
   year: z.number().int().min(1970).max(2100),
   sort_order: z.number().int().min(-100_000).max(100_000),
   visible: z.boolean(),
+  // Required, so a panel tab older than this field cannot blank it.
+  project_id: z.number().int().positive().nullable(),
   // The updated_at the editor loaded (millisecond ISO); null when creating.
   base_updated_at: z.string().max(40).nullable(),
   links: z.array(labelledUrl).max(12),

@@ -24,6 +24,7 @@ function item(overrides: Partial<AchievementInput> = {}): AchievementInput {
     year: 2025,
     sort_order: 0,
     visible: true,
+    project_id: null,
     base_updated_at: null,
     links: [{ label: 'Result', url: 'https://example.com/result' }],
     ...overrides,
@@ -154,6 +155,10 @@ describe('achievements admin API', () => {
     expect((await admin(`/achievements/${id}`)).status).toBe(404)
     expect((await admin(`/achievements/${id}`, 'DELETE')).status).toBe(404)
     expect(await db.prepare('SELECT COUNT(*) AS n FROM achievements').first<{ n: number }>()).toEqual({ n: 0 })
+  })
+
+  it('rejects a project that does not exist', async () => {
+    expect((await admin('/achievements', 'POST', item({ project_id: 9999 }))).status).toBe(400)
   })
 
   it('answers 404 for a bad id', async () => {

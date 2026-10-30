@@ -21,7 +21,7 @@ export async function listAllAchievements(db: D1Database): Promise<AdminAchievem
 
 export async function getAchievementForEdit(db: D1Database, id: number) {
   const row = await db
-    .prepare('SELECT id, kind, title, context, outcome, summary, year, links, sort_order, visible, updated_at FROM achievements WHERE id = ?')
+    .prepare('SELECT id, kind, title, context, outcome, summary, year, links, sort_order, visible, project_id, updated_at FROM achievements WHERE id = ?')
     .bind(id)
     .first<AdminAchievementSummary & { context: string; outcome: string; summary: string; links: string; updated_at: string }>()
   if (!row) return null
@@ -34,13 +34,13 @@ export async function saveAchievement(db: D1Database, id: number | null, input: 
   const stamp = nextStamp(input.base_updated_at)
   const values = [
     input.kind, input.title, input.context, input.outcome, input.summary, input.year,
-    JSON.stringify(input.links), input.sort_order, input.visible ? 1 : 0, stamp,
+    JSON.stringify(input.links), input.sort_order, input.visible ? 1 : 0, input.project_id, stamp,
   ]
   if (id === null) {
     const created = await db
       .prepare(
-        `INSERT INTO achievements (kind, title, context, outcome, summary, year, links, sort_order, visible, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, updated_at`,
+        `INSERT INTO achievements (kind, title, context, outcome, summary, year, links, sort_order, visible, project_id, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id, updated_at`,
       )
       .bind(...values)
       .first<{ id: number; updated_at: string }>()
@@ -52,7 +52,7 @@ export async function saveAchievement(db: D1Database, id: number | null, input: 
   const saved = await db
     .prepare(
       `UPDATE achievements SET kind = ?, title = ?, context = ?, outcome = ?, summary = ?, year = ?, links = ?,
-       sort_order = ?, visible = ?, updated_at = ? WHERE id = ? AND updated_at IS ? RETURNING id, updated_at`,
+       sort_order = ?, visible = ?, project_id = ?, updated_at = ? WHERE id = ? AND updated_at IS ? RETURNING id, updated_at`,
     )
     .bind(...values, id, input.base_updated_at)
     .first<{ id: number; updated_at: string }>()

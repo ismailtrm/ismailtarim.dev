@@ -1,6 +1,7 @@
 import type { Child } from 'hono/jsx'
 import { raw } from 'hono/html'
-import type { Achievement, FeaturedProject, HomeProfile, Lang, Post, PostListItem, Project, Tag } from './db'
+import type { Achievement, FeaturedProject, HomeProfile, Kind, Lang, Post, PostListItem, Project, ProjectCase, Tag } from './db'
+import { firstParagraph } from './db'
 import { formatDate, postPath } from './format'
 import { homePath, langPrefix, otherLang, UI } from './i18n'
 import { isSafeHttpUrl } from './redirect'
@@ -20,16 +21,18 @@ type LayoutProps = {
   // Where the language switch goes when there are no alternates to take it from.
   switchTo?: string
   noindex?: boolean
-  // The home page uses a wider container for its two columns.
-  wide?: boolean
+  // Kinds of post published in this language; an empty section stays out of the menu.
+  kinds?: Kind[]
   // The site section this page belongs to, shown after the name as a path.
-  section?: 'writing' | 'notes' | 'projects' | 'awards'
+  section?: 'writing' | 'notes' | 'projects' | 'awards' | 'about'
+  // The page itself, when it sits below a section: the last part of the path.
+  leaf?: { label: string; href: string }
   children: Child
 }
 
 const OG_IMAGE = '/og.png'
 
-export function Layout({ title, description, lang = 'en', canonical, alternates, switchTo, noindex, wide, section, children }: LayoutProps) {
+export function Layout({ title, description, lang = 'en', canonical, alternates, switchTo, noindex, kinds = [], section, leaf, children }: LayoutProps) {
   const ui = UI[lang]
   const pre = langPrefix(lang)
   const other = otherLang(lang)
@@ -82,7 +85,7 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
           data-cf-beacon={JSON.stringify({ token: ANALYTICS_TOKEN })}
         ></script>
       </head>
-      <body class={wide ? 'wide' : undefined}>
+      <body>
         <a class="skip-link" href="#main">{ui.skip}</a>
         <header class="site-header">
           <span class="site-path">
@@ -94,12 +97,18 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
                 /{section}
               </a>
             ) : null}
+            {leaf ? (
+              <a class="wordmark crumb" href={leaf.href}>
+                /{leaf.label}
+              </a>
+            ) : null}
           </span>
           <nav aria-label={ui.mainNav}>
-            {navLink('writing', ui.writing)}
-            {navLink('notes', ui.notes)}
             {navLink('projects', ui.projects)}
+            {kinds.includes('note') || section === 'notes' ? navLink('notes', ui.notes) : null}
+            {kinds.includes('writing') || section === 'writing' ? navLink('writing', ui.writing) : null}
             {navLink('awards', ui.awards)}
+            {navLink('about', ui.about)}
             {showSwitch ? (
               <a class="lang-switch" href={switchHref} hreflang={other} lang={other} aria-label={`${other.toUpperCase()}, ${UI[other].languageName}`}>
                 {other.toUpperCase()}
@@ -113,7 +122,7 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
         <main id="main" tabindex={-1}>{children}</main>
         <footer class="site-footer">
           <a href={`${pre}/rss.xml`}>RSS</a>
-          <a href="https://github.com/ismailtrm">GitHub</a>
+          <a href="https://github.com/ismailtrm" translate="no">@ismailtrm</a>
           <a href="https://www.linkedin.com/in/ismailtarim">LinkedIn</a>
           <a href="mailto:me@ismailtarim.dev">Email</a>
           <span class="copyright">© {new Date().getUTCFullYear()} İsmail Tarım</span>
@@ -123,53 +132,90 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
   )
 }
 
+function Section({ title, more, children }: { title: Child; more?: { label: string; href: string }; children: Child }) {
+  return (
+    <section class="section">
+      <div class="section-head">
+        <h2>{title}</h2>
+        {more ? <a href={more.href}>{more.label}</a> : null}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+// One row of every list on the site: what a reader scans for in the left column, the work on the right.
+function Entry({ id, meta, children }: { id?: string; meta: Child; children: Child }) {
+  return (
+    <li class="entry" id={id}>
+      <div class="entry-meta">{meta}</div>
+      <div class="entry-main">{children}</div>
+    </li>
+  )
+}
+
+function statusText(p: { status: Project['status']; status_label: string | null }, lang: Lang) {
+  return p.status_label ?? UI[lang].statusLabel[p.status]
+}
+
+function PostEntry({ post, lang }: { post: Pick<PostListItem, 'kind' | 'slug' | 'lang' | 'title' | 'published_at'>; lang: Lang }) {
+  return (
+    <Entry meta={<time datetime={post.published_at}>{formatDate(post.published_at, lang)}</time>}>
+      <p class="entry-title">
+        <a href={postPath(post.kind, post.slug, post.lang)} lang={post.lang}>
+          {post.title}
+        </a>
+      </p>
+    </Entry>
+  )
+}
+
 export function PostList({ posts, lang = 'en' }: { posts: PostListItem[]; lang?: Lang }) {
   if (!posts.length) return <p class="muted">{UI[lang].noPosts}</p>
   return (
-    <ul class="post-list">
+    <ul class="entries tight">
       {posts.map((p) => (
-        <li>
-          <time datetime={p.published_at}>{formatDate(p.published_at, lang)}</time>
-          <a href={postPath(p.kind, p.slug, p.lang)} lang={p.lang}>
-            {p.title}
-          </a>
-        </li>
+        <PostEntry post={p} lang={lang} />
       ))}
     </ul>
   )
 }
 
-export function ProjectLedger({ projects, lang = 'en' }: { projects: Project[]; lang?: Lang }) {
-  const ui = UI[lang]
-  if (!projects.length) return <p class="muted">{ui.noProjects}</p>
+function ProjectEntry({ project, lang }: { project: Project & { post?: FeaturedProject['post'] }; lang: Lang }) {
+  const pre = langPrefix(lang)
+  // A case page wins, then a published post in its own language; the query already dropped unpublished posts.
+  const href = project.has_case ? `${pre}/projects/${project.slug}` : project.post ? postPath(project.post.kind, project.post.slug, project.post.lang) : null
   return (
-    <div class="table-wrap">
-      <table class="ledger">
-        <thead>
-          <tr>
-            <th scope="col">{ui.work}</th>
-            <th scope="col">{ui.year}</th>
-            <th scope="col">{ui.status}</th>
-            <th scope="col">{ui.evidence}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {projects.map((p) => (
-            <tr>
-              <td>
-                {p.has_case ? <a href={`${langPrefix(lang)}/projects/${p.slug}`}>{p.name}</a> : p.name}
-                <span class="muted block">{p.summary}</span>
-              </td>
-              <td class="num">{p.year}</td>
-              <td class={`status status-${p.status}`}>{p.status_label ?? ui.statusLabel[p.status]}</td>
-              <td>
-                <BadgeList items={p.links} />
-              </td>
-            </tr>
+    <Entry
+      meta={
+        <>
+          <span class="num">{project.year}</span>
+          <span class={`status status-${project.status}`}>{statusText(project, lang)}</span>
+        </>
+      }
+    >
+      <p class="entry-title">{href ? <a href={href}>{project.name}</a> : project.name}</p>
+      <p class="entry-text">{project.summary}</p>
+      {project.results.length ? (
+        <p class="entry-rel">
+          {project.results.map((r) => (
+            <a href={`${pre}/awards#a-${r.id}`}>{r.outcome || r.title}</a>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </p>
+      ) : null}
+      <BadgeList items={project.links} />
+    </Entry>
+  )
+}
+
+export function ProjectList({ projects, lang = 'en' }: { projects: Project[]; lang?: Lang }) {
+  if (!projects.length) return <p class="muted">{UI[lang].noProjects}</p>
+  return (
+    <ul class="entries">
+      {projects.map((p) => (
+        <ProjectEntry project={p} lang={lang} />
+      ))}
+    </ul>
   )
 }
 
@@ -187,40 +233,27 @@ function BadgeList({ items }: { items: { label: string; url: string }[] }) {
   )
 }
 
-function FeaturedItem({ project, lang }: { project: FeaturedProject; lang: Lang }) {
+function AchievementItem({ item, lang }: { item: Achievement; lang: Lang }) {
   const ui = UI[lang]
-  // A case page wins, then a published post in its own language; the query already dropped unpublished posts.
-  const href = project.has_case
-    ? `${langPrefix(lang)}/projects/${project.slug}`
-    : project.post
-      ? postPath(project.post.kind, project.post.slug, project.post.lang)
-      : null
   return (
-    <li>
-      <p class="featured-head">
-        {href ? <a href={href}>{project.name}</a> : project.name}
-        <span class="num muted">{project.year}</span>
-        {project.status_label || project.status !== 'personal' ? <span class={`status status-${project.status}`}>{project.status_label ?? ui.statusLabel[project.status]}</span> : null}
-      </p>
-      <p class="muted">{project.summary}</p>
-      <BadgeList items={project.links} />
-    </li>
-  )
-}
-
-function AchievementItem({ item }: { item: Achievement }) {
-  return (
-    <li class="record">
-      <p class="record-result">
-        {item.outcome ? <strong>{item.outcome}</strong> : null}
-        <span class="num muted">{item.year}</span>
-      </p>
-      <div class="record-body">
-        <h3>{item.title}</h3>
-        {item.context || item.summary ? <p class="muted">{[item.context && `${item.context}.`, item.summary].filter(Boolean).join(' ')}</p> : null}
-        <BadgeList items={item.links} />
-      </div>
-    </li>
+    <Entry
+      id={`a-${item.id}`}
+      meta={
+        <>
+          <span class="num">{item.year}</span>
+          {item.outcome ? <strong>{item.outcome}</strong> : null}
+        </>
+      }
+    >
+      <p class="entry-title">{item.title}</p>
+      {item.context || item.summary ? <p class="entry-text">{[item.context && `${item.context}.`, item.summary].filter(Boolean).join(' ')}</p> : null}
+      {item.project ? (
+        <p class="entry-rel">
+          {ui.project}: <a href={`${langPrefix(lang)}/projects/${item.project.slug}`}>{item.project.name}</a>
+        </p>
+      ) : null}
+      <BadgeList items={item.links} />
+    </Entry>
   )
 }
 
@@ -232,64 +265,187 @@ export function AchievementList({ items, lang = 'en' }: { items: Achievement[]; 
       {([['award', ui.awards], ['contribution', ui.contributions]] as const).map(([kind, heading]) => {
         const mine = items.filter((a) => a.kind === kind)
         return mine.length ? (
-          <section>
-            <h2>{heading}</h2>
-            <ul class="record-list">
+          <Section title={heading}>
+            <ul class="entries">
               {mine.map((a) => (
-                <AchievementItem item={a} />
+                <AchievementItem item={a} lang={lang} />
               ))}
             </ul>
-          </section>
+          </Section>
         ) : null
       })}
     </>
   )
 }
 
+// A GitHub profile reads as its handle; every other link keeps the label from the panel.
+function profileLinkLabel(link: { label: string; url: string }) {
+  const handle = link.url.match(/^https:\/\/github\.com\/([\w-]+)\/?$/)?.[1]
+  return handle ? `@${handle}` : link.label
+}
+
+function safeProfileLinks(profile: HomeProfile) {
+  return profile.links.filter((l) => isSafeHttpUrl(l.url) || /^mailto:[^\s@]+@[^\s@]+$/.test(l.url))
+}
+
 type ProfileHomeProps = { profile: HomeProfile; projects: FeaturedProject[]; posts: PostListItem[]; lang: Lang }
 
 export function ProfileHome({ profile, projects, posts, lang }: ProfileHomeProps) {
   const ui = UI[lang]
-  const links = profile.links.filter((l) => isSafeHttpUrl(l.url) || /^mailto:[^\s@]+@[^\s@]+$/.test(l.url))
+  const pre = langPrefix(lang)
+  const links = safeProfileLinks(profile)
+  const intro = firstParagraph(profile.body_html)
+  const latest = posts.slice(0, 4)
   return (
-    <div class="home-grid">
-      <aside class="profile-card">
+    <>
+      <div class="home-grid">
         {profile.avatar ? (
           <img class="avatar" src={`/media/${profile.avatar.key}`} alt={profile.name} width={profile.avatar.width} height={profile.avatar.height} fetchpriority="high" />
         ) : null}
-        <h1>{profile.name}</h1>
-        {profile.headline ? <p>{profile.headline}</p> : null}
-        {profile.location ? <p class="muted">{profile.location}</p> : null}
-        {links.length ? (
-          <ul class="profile-links">
+        <div class="hero-id">
+          <h1>{profile.name}</h1>
+          {profile.headline ? <p class="lede">{profile.headline}</p> : null}
+        </div>
+        <div class="hero-rest">
+          {/* body_html is produced by the owner's panel (behind Access), not by visitors. */}
+          {intro ? <div class="prose" lang={profile.lang}>{raw(intro)}</div> : null}
+          <p>
+            <a href={`${pre}/about`}>{ui.moreAbout}</a>
+          </p>
+          <p class="contact">
+            {profile.location ? <span class="muted">{profile.location}</span> : null}
             {links.map((l) => (
-              <li>
-                <a href={l.url}>{l.label}</a>
-              </li>
+              <a href={l.url}>{profileLinkLabel(l)}</a>
+            ))}
+          </p>
+          <BadgeList items={profile.badges} />
+        </div>
+      </div>
+      {projects.length ? (
+        <Section title={ui.selectedProjects} more={{ label: ui.allProjects, href: `${pre}/projects` }}>
+          <ul class="entries">
+            {projects.map((p) => (
+              <ProjectEntry project={p} lang={lang} />
             ))}
           </ul>
-        ) : null}
-        <BadgeList items={profile.badges} />
-      </aside>
-      <div class="home-main">
-        {/* body_html is produced by the owner's panel (behind Access), not by visitors. */}
-        <div class="prose" lang={profile.lang}>{raw(profile.body_html)}</div>
-        {projects.length ? (
-          <section>
-            <h2>{ui.selectedProjects}</h2>
-            <ul class="featured-list">
-              {projects.map((p) => (
-                <FeaturedItem project={p} lang={lang} />
-              ))}
-            </ul>
-          </section>
-        ) : null}
-        <section>
-          <h2>{ui.recent}</h2>
-          <PostList posts={posts} lang={lang} />
-        </section>
-      </div>
+        </Section>
+      ) : null}
+      {latest.length ? (
+        <Section title={latest.every((p) => p.kind === 'note') ? ui.latestNotes : ui.recent} {...(latest.some((p) => p.kind === 'note') ? { more: { label: ui.allNotes, href: `${pre}/notes` } } : {})}>
+          <PostList posts={latest} lang={lang} />
+        </Section>
+      ) : null}
+    </>
+  )
+}
+
+// Facts in the left column, sticky on a wide screen; on a phone they sit between the title and the text.
+function FactsPage({ lang, facts, head, children }: { lang: Lang; facts: Child; head: Child; children: Child }) {
+  return (
+    <article class="case post" lang={lang}>
+      <div class="case-head">{head}</div>
+      <dl class="facts">{facts}</dl>
+      <div class="case-body">{children}</div>
+    </article>
+  )
+}
+
+function Fact({ label, wide, children }: { label: string; wide?: boolean; children: Child }) {
+  return (
+    <div class={wide ? 'wide-fact' : undefined}>
+      <dt>{label}</dt>
+      <dd>{children}</dd>
     </div>
+  )
+}
+
+export function AboutPage({ profile, lang }: { profile: HomeProfile; lang: Lang }) {
+  const ui = UI[lang]
+  const links = safeProfileLinks(profile)
+  return (
+    <FactsPage
+      lang={profile.lang}
+      head={<h1>{ui.about}</h1>}
+      facts={
+        <>
+          {profile.location ? <Fact label={ui.location} wide>{profile.location}</Fact> : null}
+          {links.length ? (
+            <Fact label={ui.links} wide>
+              <span class="fact-links">
+                {links.map((l) => (
+                  <a href={l.url}>{profileLinkLabel(l)}</a>
+                ))}
+              </span>
+            </Fact>
+          ) : null}
+        </>
+      }
+    >
+      {/* body_html is produced by the owner's panel (behind Access), not by visitors. */}
+      <div class="prose">{raw(profile.body_html)}</div>
+    </FactsPage>
+  )
+}
+
+export function ProjectCasePage({ project, lang }: { project: ProjectCase; lang: Lang }) {
+  const ui = UI[lang]
+  const pre = langPrefix(lang)
+  const awards = project.achievements.filter((a) => a.kind === 'award' && a.outcome)
+  return (
+    <>
+      <FactsPage
+        lang="en"
+        head={
+          <>
+            <h1>{project.name}</h1>
+            <p class="lede muted">{project.summary}</p>
+          </>
+        }
+        facts={
+          <>
+            <Fact label={ui.year}><span class="num">{project.year}</span></Fact>
+            <Fact label={ui.status}>{statusText(project, lang)}</Fact>
+            {project.role ? <Fact label={ui.role} wide>{project.role}</Fact> : null}
+            {project.team ? <Fact label={ui.team} wide>{project.team}</Fact> : null}
+            {awards.length ? (
+              <Fact label={ui.result} wide>
+                <span class="fact-links">
+                  {awards.map((a) => (
+                    <a href={`${pre}/awards#a-${a.id}`}>{a.outcome}</a>
+                  ))}
+                </span>
+              </Fact>
+            ) : null}
+            {project.links.length ? <Fact label={ui.links} wide><BadgeList items={project.links} /></Fact> : null}
+          </>
+        }
+      >
+        {/* case_html is produced by the owner's panel (behind Access), not by visitors. */}
+        <div class="prose">{raw(project.case_html)}</div>
+      </FactsPage>
+      {project.achievements.length || project.post ? (
+        <Section title={ui.related}>
+          <ul class="entries">
+            {project.achievements.map((a) => (
+              <Entry
+                meta={
+                  <>
+                    <span class="num">{a.year}</span>
+                    {a.outcome ? <span>{a.outcome}</span> : null}
+                  </>
+                }
+              >
+                <p class="entry-title">
+                  <a href={`${pre}/awards#a-${a.id}`}>{a.title}</a>
+                </p>
+                <BadgeList items={a.links} />
+              </Entry>
+            ))}
+            {project.post ? <PostEntry post={project.post} lang={lang} /> : null}
+          </ul>
+        </Section>
+      ) : null}
+    </>
   )
 }
 
@@ -302,13 +458,12 @@ export function InlineCode({ text }: { text: string }) {
 }
 
 function TagLinks({ tags, lang }: { tags: Tag[]; lang: Lang }) {
-  if (!tags.length) return null
   return (
-    <p class="tags">
+    <span class="fact-links">
       {tags.map((t) => (
         <a href={`${langPrefix(lang)}/tags/${t.slug}`}>#{t.name}</a>
       ))}
-    </p>
+    </span>
   )
 }
 
@@ -316,11 +471,18 @@ export function Article({ post }: { post: Post }) {
   const note = post.note
   const ui = UI[post.lang]
   return (
-    <article class="post" lang={post.lang}>
-      <p class="muted">
-        {post.kind === 'note' ? ui.fieldNote : ui.essay}, <time datetime={post.published_at}>{formatDate(post.published_at, post.lang)}</time>
-      </p>
-      <h1>{post.title}</h1>
+    <FactsPage
+      lang={post.lang}
+      head={<h1>{post.title}</h1>}
+      facts={
+        <>
+          <Fact label={post.kind === 'note' ? ui.fieldNote : ui.essay} wide>
+            <time datetime={post.published_at}>{formatDate(post.published_at, post.lang)}</time>
+          </Fact>
+          {post.tags.length ? <Fact label={ui.tags} wide><TagLinks tags={post.tags} lang={post.lang} /></Fact> : null}
+        </>
+      }
+    >
       {note ? (
         <aside class="answer" aria-label={ui.shortAnswer}>
           <p>
@@ -339,7 +501,6 @@ export function Article({ post }: { post: Post }) {
       ) : null}
       {/* body_html is produced by the owner's panel (behind Access), not by visitors. */}
       <div class="prose">{raw(post.body_html)}</div>
-      <TagLinks tags={post.tags} lang={post.lang} />
-    </article>
+    </FactsPage>
   )
 }

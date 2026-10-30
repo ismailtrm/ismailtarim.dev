@@ -59,14 +59,19 @@ Sistem tercihine uyar; köşede elle değiştirme düğmesi, seçim tarayıcıda
 
 ## Menü ve altbilgi
 
-- Üst menü her sayfada: Writing, Notes, Projects, Awards, dil seçici ve tema düğmesi. About menüde yok; `/about` ana sayfaya yönlenir.
-- Altbilgi: RSS, GitHub, LinkedIn, e-posta, telif satırı.
+- Başlıkta tam yol: `~/ismail/projects/stox`; her parça tıklanır.
+- Üst menü her sayfada: Projects, Notes, Writing, Awards, About, dil seçici ve tema düğmesi. O dilde yayını olmayan Notes ve Writing menüde görünmez.
+- Altbilgi: RSS, `@ismailtrm`, LinkedIn, e-posta, telif satırı.
 
-## Ana sayfa: geniş ekranda iki sütun
+## Tek ızgara ve tek liste
 
-İçerik panelden gelir (`#/profile`, `#/projects`); dile göre bir profil satırı vardır. Sol sütun (aside): fotoğraf (yoksa hiç çizilmez), isim, tek satır tanıtım, konum, bağlantılar, rozetler. Sağ sütun: panelde yazılan gövde, "Selected projects" (panelde "Show on home page" işaretli projeler; yoksa bölüm yok), son yazılar/notlar (tarihli liste). Dar ekranda tek sütun, yatay kaydırma yok; yalnız ana sayfanın kabı genişler, diğer sayfalar okuma genişliğinde kalır.
+Üst menü, içerik ve altbilgi 900 px genişlikte. İçerik iki izli: solda 172 px bilgi sütunu (tarih, yıl, durum, sonuç, rol), sağda iş. Projeler, notlar, ödüller aynı `.entry` satırını kullanır; yazı, proje ve About sayfalarında bilgiler sol sütunda durur. Dar ekranda tek sütun. Bölüm başlıkları gövdeden güçlüdür, üstlerinde ince çizgi vardır.
 
-Gövdesi boş profil çizilmez: İngilizce profil yoksa eski ana sayfa (iki cümlelik tanıtım, son yazılar, proje tablosu) aynen gösterilir. `/tr`, kendi profili yoksa İngilizce profili gösterir; bu durumda `/tr` noindex olur ve iki ana sayfada da hreflang bulunmaz (`/tr/projects` ile aynı kural). `/about` ve `/tr/about` ana sayfaya 301 yapar.
+## Ana sayfa ve About
+
+İçerik panelden gelir (`#/profile`, `#/projects`); dile göre bir profil satırı vardır. Ana sayfa: fotoğraf (yoksa hiç çizilmez), isim, tek satır tanıtım, gövdenin yalnız ilk paragrafı, konum ve bağlantılar, rozetler, "Selected projects" (panelde "Show on home page" işaretli projeler; yoksa bölüm yok), son dört yazı/not. Gövdenin tamamı `/about`'tadır.
+
+Gövdesi boş profil çizilmez: İngilizce profil yoksa eski ana sayfa (iki cümlelik tanıtım, son yazılar, proje tablosu) aynen gösterilir. `/tr` ve `/tr/about`, kendi profili yoksa İngilizce profili gösterir; bu durumda noindex olur ve hreflang bulunmaz (`/tr/projects` ile aynı kural). Hiç profil yoksa `/about` ana sayfaya 301 yapar.
 
 ## Saha notu biçimi: kısa cevap + hikâye
 
@@ -83,9 +88,9 @@ Ana sütun ~65 karakter, kenar notları sağ boşlukta; dar ekranda satır için
 
 Üst şeritte dosya adı ya da kabuk, sağda kopyala düğmesi; zemin tema rengi (her temada koyu değil).
 
-## Bağlantılar: hep altı çizili
+## Bağlantılar
 
-Metin renginde, alt çizgi vurgu renginde ve 2px, `text-underline-offset: 3px`. Üzerine gelince ve odakta belirginleşir.
+Metin içi ve eylem bağlantıları metin renginde, alt çizgi vurgu renginde ve 2px, `text-underline-offset: 3px`. Liste başlıkları, üst menü ve altbilgi çizgisizdir; üzerine gelince çizgi çıkar, menüde geçerli sayfa çizgilidir. Odak halkası her zaman görünür.
 
 ## Görseller ve şekiller
 
@@ -95,9 +100,9 @@ Metin renginde, alt çizgi vurgu renginde ve 2px, `text-underline-offset: 3px`. 
 
 ## Proje vitrini: kanıt tablosu + vaka çalışması
 
-- Projects sayfası kanıt tablosu: iş, yıl, durum (merged, under review, submitted, personal tool), kanıt bağlantısı.
+- Projects sayfası tek liste dilinde: solda yıl ve durum (merged, under review, submitted, personal tool), sağda iş, ilgili ödül veya katkının sonucu, kanıt bağlantısı.
 - Durumlar dürüst: merge edilmemiş iş merged görünmez.
-- Önemli projelerin satırı vaka çalışması sayfasına açılır: problem, kararlar, ölçüm, ders.
+- Önemli projelerin satırı vaka çalışması sayfasına açılır: problem, kararlar, ölçüm, ders. Sol sütunda yıl, durum, rol, ekip, sonuç; altta ilgili ödül, katkı ve yazı.
 
 ## İmza öğesi: upstream rozetleri
 

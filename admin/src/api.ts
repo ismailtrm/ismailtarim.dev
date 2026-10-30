@@ -61,6 +61,8 @@ export type EditableProject = {
   year: number
   status: ProjectStatus
   status_label: string | null
+  role: string
+  team: string
   case_md: string | null
   sort_order: number
   visible: boolean
@@ -83,6 +85,7 @@ export type EditableAchievement = {
   year: number
   sort_order: number
   visible: boolean
+  project_id: number | null
   // The newest save the editor loaded; the server refuses a save made from an older copy. Null while creating.
   updated_at: string | null
   links: LabelledUrl[]
