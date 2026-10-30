@@ -157,6 +157,36 @@ export async function listProjects(db: D1Database): Promise<Project[]> {
   }))
 }
 
+export type Achievement = {
+  id: number
+  kind: 'award' | 'contribution'
+  title: string
+  context: string
+  outcome: string
+  summary: string
+  year: number
+  links: { label: string; url: string }[]
+}
+
+type AchievementRow = Omit<Achievement, 'links'> & { links: string }
+
+export async function listAchievements(db: D1Database): Promise<Achievement[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT id, kind, title, context, outcome, summary, year, links
+       FROM achievements WHERE visible = 1 ORDER BY sort_order, year DESC, id`,
+    )
+    .all<AchievementRow>()
+  // links is checked with json_valid() in the schema; this only narrows the shape.
+  return results.map((r) => {
+    const parsed: unknown = JSON.parse(r.links)
+    const links = Array.isArray(parsed)
+      ? parsed.filter((l): l is { label: string; url: string } => typeof l?.label === 'string' && typeof l?.url === 'string')
+      : []
+    return { ...r, links }
+  })
+}
+
 // The published post a project points at; an unpublished one is dropped in SQL, so nothing about it reaches the page.
 export type FeaturedProject = Project & { post: { kind: Kind; slug: string; lang: Lang } | null }
 

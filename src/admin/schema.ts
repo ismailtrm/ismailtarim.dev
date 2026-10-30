@@ -96,6 +96,22 @@ export const projectInput = z
 
 export type ProjectInput = z.infer<typeof projectInput>
 
+export const achievementInput = z.object({
+  kind: z.enum(['award', 'contribution']),
+  title: z.string().trim().min(1).max(200),
+  context: z.string().trim().max(200),
+  outcome: z.string().trim().max(200),
+  summary: z.string().trim().max(600),
+  year: z.number().int().min(1970).max(2100),
+  sort_order: z.number().int().min(-100_000).max(100_000),
+  visible: z.boolean(),
+  // The updated_at the editor loaded (millisecond ISO); null when creating.
+  base_updated_at: z.string().max(40).nullable(),
+  links: z.array(labelledUrl).max(12),
+})
+
+export type AchievementInput = z.infer<typeof achievementInput>
+
 export function tagSlug(name: string): string {
   return name
     .toLowerCase()

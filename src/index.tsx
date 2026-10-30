@@ -4,13 +4,13 @@ import { html, raw } from 'hono/html'
 import type { HtmlEscapedString } from 'hono/utils/html'
 import { secureHeaders } from 'hono/secure-headers'
 import type { Env } from './env'
-import { findRedirect, getProjectCase, getPublishedPost, listByTag, listFeaturedProjects, listHomeProfiles, listProjects, listPublished, listTranslations } from './db'
+import { findRedirect, getProjectCase, getPublishedPost, listByTag, listAchievements, listFeaturedProjects, listHomeProfiles, listProjects, listPublished, listTranslations } from './db'
 import type { Lang } from './db'
 import { homeState } from './home-state'
 import { llmsTxt, rss, sitemap } from './feeds'
 import { homePath, langPrefix, otherLang, UI } from './i18n'
 import { safeRedirectTarget } from './redirect'
-import { Article, Layout, PostList, ProfileHome, ProjectLedger } from './views'
+import { AchievementList, Article, Layout, PostList, ProfileHome, ProjectLedger } from './views'
 import adminApi from './admin/api'
 import { recordRead, rollupRecent } from './stats'
 
@@ -236,6 +236,26 @@ for (const [pre, lang] of LANGS) {
     )
   })
 
+  // Awards are single-language like projects: /tr shows the English data in Turkish chrome, noindex, no hreflang.
+  app.get(`${pre}/awards`, async (c) => {
+    const items = await listAchievements(c.env.DB)
+    cache(c)
+    return page(
+      c,
+      <Layout
+        title={`${ui.awards}, ${c.env.SITE_NAME}`}
+        canonical={site(c) + `${pre}/awards`}
+        switchTo={`${langPrefix(otherLang(lang))}/awards`}
+        noindex={lang === 'tr'}
+        lang={lang}
+        section="awards"
+      >
+        <h1>{ui.awardsHeading}</h1>
+        <AchievementList items={items} lang={lang} />
+      </Layout>,
+    )
+  })
+
   app.get(`${pre}/projects/:slug{${SLUG}}`, async (c) => {
     const slug = c.req.param('slug')
     const project = await getProjectCase(c.env.DB, slug)
@@ -269,14 +289,15 @@ for (const [pre, lang] of LANGS) {
 }
 
 app.get('/sitemap.xml', async (c) => {
-  const [en, tr, projects, profiles] = await Promise.all([
+  const [en, tr, projects, profiles, achievements] = await Promise.all([
     listPublished(c.env.DB, 'en', null, 5000),
     listPublished(c.env.DB, 'tr', null, 5000),
     listProjects(c.env.DB),
     listHomeProfiles(c.env.DB),
+    listAchievements(c.env.DB),
   ])
   cache(c)
-  return c.body(sitemap(site(c), [...en, ...tr], projects, homeState(profiles)), 200, { 'Content-Type': 'application/xml; charset=utf-8' })
+  return c.body(sitemap(site(c), [...en, ...tr], projects, homeState(profiles), achievements.length > 0), 200, { 'Content-Type': 'application/xml; charset=utf-8' })
 })
 
 app.get('/llms.txt', async (c) => {

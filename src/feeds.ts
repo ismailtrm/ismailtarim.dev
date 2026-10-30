@@ -17,7 +17,7 @@ export function rss(siteUrl: string, siteName: string, posts: PostListItem[], la
 
 // Pages that exist in both languages carry xhtml:link alternates (Google's hreflang-in-sitemap form);
 // x-default is the English URL.
-export function sitemap(siteUrl: string, posts: PostListItem[], projects: Project[], home: HomeState = LEGACY_HOME): string {
+export function sitemap(siteUrl: string, posts: PostListItem[], projects: Project[], home: HomeState = LEGACY_HOME, hasAwards = false): string {
   const langs: Lang[] = ['en', 'tr']
   const entries: { lang: Lang; path: string; group: string }[] = []
   for (const lang of langs) {
@@ -31,6 +31,7 @@ export function sitemap(siteUrl: string, posts: PostListItem[], projects: Projec
   }
   // Projects are English-only for now; the /tr project pages are noindex and stay out of the sitemap.
   entries.push({ lang: 'en', path: '/projects', group: '/projects' })
+  if (hasAwards) entries.push({ lang: 'en', path: '/awards', group: '/awards' })
   for (const pr of projects) if (pr.has_case) entries.push({ lang: 'en', path: `/projects/${pr.slug}`, group: `/projects/${pr.slug}` })
   for (const p of posts) entries.push({ lang: p.lang, path: postPath(p.kind, p.slug, p.lang), group: postPath(p.kind, p.slug) })
 

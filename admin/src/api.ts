@@ -70,6 +70,23 @@ export type EditableProject = {
   links: ProjectLink[]
 }
 
+export type AchievementKind = 'award' | 'contribution'
+export type AchievementSummary = { id: number; kind: AchievementKind; title: string; year: number; sort_order: number; visible: number }
+export type EditableAchievement = {
+  id: number | null
+  kind: AchievementKind
+  title: string
+  context: string
+  outcome: string
+  summary: string
+  year: number
+  sort_order: number
+  visible: boolean
+  // The newest save the editor loaded; the server refuses a save made from an older copy. Null while creating.
+  updated_at: string | null
+  links: LabelledUrl[]
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -134,6 +151,17 @@ export const api = {
     })
   },
   deleteProject: (id: number) => call<{ ok: true }>(`/projects/${id}`, { method: 'DELETE' }),
+  achievements: () => call<AchievementSummary[]>('/achievements'),
+  achievement: (id: number) => call<EditableAchievement>(`/achievements/${id}`),
+  saveAchievement: (a: EditableAchievement) => {
+    const { id, updated_at, ...fields } = a
+    return call<{ id: number; updated_at: string }>(id ? `/achievements/${id}` : '/achievements', {
+      method: id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...fields, base_updated_at: updated_at }),
+    })
+  },
+  deleteAchievement: (id: number) => call<{ ok: true }>(`/achievements/${id}`, { method: 'DELETE' }),
   upload: (file: File, alt: string, width: number, height: number) =>
     call<{ url: string; alt: string }>(`/uploads?${new URLSearchParams({ alt, w: String(width), h: String(height) })}`, {
       method: 'POST',

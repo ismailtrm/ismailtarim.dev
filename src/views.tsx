@@ -1,6 +1,6 @@
 import type { Child } from 'hono/jsx'
 import { raw } from 'hono/html'
-import type { FeaturedProject, HomeProfile, Lang, Post, PostListItem, Project, Tag } from './db'
+import type { Achievement, FeaturedProject, HomeProfile, Lang, Post, PostListItem, Project, Tag } from './db'
 import { formatDate, postPath } from './format'
 import { homePath, langPrefix, otherLang, UI } from './i18n'
 import { isSafeHttpUrl } from './redirect'
@@ -23,7 +23,7 @@ type LayoutProps = {
   // The home page uses a wider container for its two columns.
   wide?: boolean
   // The site section this page belongs to, shown after the name as a path.
-  section?: 'writing' | 'notes' | 'projects'
+  section?: 'writing' | 'notes' | 'projects' | 'awards'
   children: Child
 }
 
@@ -76,6 +76,7 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
             <a href={`${pre}/writing`}>{ui.writing}</a>
             <a href={`${pre}/notes`}>{ui.notes}</a>
             <a href={`${pre}/projects`}>{ui.projects}</a>
+            <a href={`${pre}/awards`}>{ui.awards}</a>
             <a class="lang-switch" href={switchHref} hreflang={other} lang={other} aria-label={UI[other].languageName}>
               {other.toUpperCase()}
             </a>
@@ -184,6 +185,43 @@ function FeaturedItem({ project, lang }: { project: FeaturedProject; lang: Lang 
       <p class="muted">{project.summary}</p>
       <BadgeList items={project.links} />
     </li>
+  )
+}
+
+function AchievementItem({ item }: { item: Achievement }) {
+  return (
+    <li>
+      <p class="featured-head">
+        {item.title}
+        <span class="num muted">{item.year}</span>
+        {item.outcome ? <span class="status">{item.outcome}</span> : null}
+      </p>
+      {item.context ? <p class="muted">{item.context}</p> : null}
+      {item.summary ? <p>{item.summary}</p> : null}
+      <BadgeList items={item.links} />
+    </li>
+  )
+}
+
+export function AchievementList({ items, lang = 'en' }: { items: Achievement[]; lang?: Lang }) {
+  const ui = UI[lang]
+  if (!items.length) return <p class="muted">{ui.noAwards}</p>
+  return (
+    <>
+      {([['award', ui.awards], ['contribution', ui.contributions]] as const).map(([kind, heading]) => {
+        const mine = items.filter((a) => a.kind === kind)
+        return mine.length ? (
+          <section>
+            <h2>{heading}</h2>
+            <ul class="featured-list">
+              {mine.map((a) => (
+                <AchievementItem item={a} />
+              ))}
+            </ul>
+          </section>
+        ) : null
+      })}
+    </>
   )
 }
 

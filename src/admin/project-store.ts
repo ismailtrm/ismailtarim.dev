@@ -44,7 +44,7 @@ function slugRedirects(db: D1Database, oldSlug: string, newSlug: string): D1Prep
 }
 
 // A save must always change updated_at, or a stale copy saved in the same millisecond would still match.
-function nextStamp(prev: string | null): string {
+export function nextStamp(prev: string | null): string {
   const now = new Date()
   return new Date(prev && now.toISOString() <= prev ? Date.parse(prev) + 1 : now.getTime()).toISOString()
 }

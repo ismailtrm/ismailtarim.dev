@@ -1,18 +1,21 @@
 import { render } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
 import { api, type Kind, type PostSummary } from './api'
+import { AchievementEditor, AchievementList } from './Awards'
 import { Editor } from './Editor'
 import { ProfileEditor } from './ProfileEditor'
 import { ProjectEditor, ProjectList } from './Projects'
 import { Stats } from './Stats'
 
-// Hash routes keep every panel URL on the one static index.html: #/, #/new/note, #/edit/12, #/translate/12, #/profile, #/projects, #/projects/new, #/projects/3
+// Hash routes keep every panel URL on the one static index.html: #/, #/new/note, #/edit/12, #/translate/12, #/profile, #/projects, #/projects/new, #/projects/3, #/awards, #/awards/new, #/awards/4
 type Route =
   | { name: 'list' }
   | { name: 'stats' }
   | { name: 'profile' }
   | { name: 'projects' }
   | { name: 'project'; id: number | null }
+  | { name: 'awards' }
+  | { name: 'award'; id: number | null }
   | { name: 'new'; kind: Kind } | { name: 'edit'; id: number } | { name: 'translate'; id: number }
 
 function parse(hash: string): Route {
@@ -23,6 +26,9 @@ function parse(hash: string): Route {
   if (a === 'projects' && b === 'new') return { name: 'project', id: null }
   if (a === 'projects' && b && /^\d+$/.test(b)) return { name: 'project', id: Number(b) }
   if (a === 'projects') return { name: 'projects' }
+  if (a === 'awards' && b === 'new') return { name: 'award', id: null }
+  if (a === 'awards' && b && /^\d+$/.test(b)) return { name: 'award', id: Number(b) }
+  if (a === 'awards') return { name: 'awards' }
   if (a === 'edit' && b && /^\d+$/.test(b)) return { name: 'edit', id: Number(b) }
   if (a === 'translate' && b && /^\d+$/.test(b)) return { name: 'translate', id: Number(b) }
   return { name: 'list' }
@@ -98,6 +104,7 @@ function App() {
           <a href="#/">Posts</a>
           <a href="#/profile">Profile</a>
           <a href="#/projects">Projects</a>
+          <a href="#/awards">Awards</a>
           <a href="#/stats">Stats</a>
           <a href="/" target="_blank" rel="noopener">
             View site
@@ -110,6 +117,8 @@ function App() {
         {route.name === 'profile' && <ProfileEditor />}
         {route.name === 'projects' && <ProjectList />}
         {route.name === 'project' && <ProjectEditor key={`project-${route.id}`} id={route.id} />}
+        {route.name === 'awards' && <AchievementList />}
+        {route.name === 'award' && <AchievementEditor key={`award-${route.id}`} id={route.id} />}
         {route.name === 'new' && <Editor key={`new-${route.kind}`} id={null} kind={route.kind} onSaved={(id) => location.replace(`#/edit/${id}`)} />}
         {route.name === 'translate' && (
           <Editor key={`translate-${route.id}`} id={null} kind="note" translateOf={route.id} onSaved={(id) => location.replace(`#/edit/${id}`)} />

@@ -5,9 +5,10 @@ import { HTTPException } from 'hono/http-exception'
 import type { Env } from '../env'
 import { readStats, rollupRecent } from '../stats'
 import { requireAccess } from './access'
+import { deleteAchievement, getAchievementForEdit, listAllAchievements, saveAchievement } from './achievement-store'
 import { deleteProject, getProjectForEdit, listAllProjects, saveProject } from './project-store'
 import { getProfileForEdit, getProfileRevision, listProfileRevisions, saveProfile } from './profile-store'
-import { postInput, profileInput, profileLang, projectInput } from './schema'
+import { achievementInput, postInput, profileInput, profileLang, projectInput } from './schema'
 import { ConflictError, InputError, getPostForEdit, getRevision, listAllPosts, listRevisions, savePost } from './store'
 
 const IMAGE_TYPES: Record<string, string> = {
@@ -164,6 +165,37 @@ api.put('/projects/:id', jsonLimit, async (c) => {
 api.delete('/projects/:id', async (c) => {
   const projectId = id(c.req.param('id'))
   return projectId && (await deleteProject(c.env.DB, projectId)) ? c.json({ ok: true }) : c.json({ error: 'not found' }, 404)
+})
+
+api.get('/achievements', async (c) => c.json(await listAllAchievements(c.env.DB)))
+
+api.get('/achievements/:id', async (c) => {
+  const itemId = id(c.req.param('id'))
+  const item = itemId ? await getAchievementForEdit(c.env.DB, itemId) : null
+  return item ? c.json(item) : c.json({ error: 'not found' }, 404)
+})
+
+async function readAchievement(req: Request) {
+  return achievementInput.safeParse(await req.json().catch(() => null))
+}
+
+api.post('/achievements', jsonLimit, async (c) => {
+  const parsed = await readAchievement(c.req.raw)
+  if (!parsed.success) return c.json({ error: 'invalid entry', issues: parsed.error.issues }, 400)
+  return c.json(await saveAchievement(c.env.DB, null, parsed.data), 201)
+})
+
+api.put('/achievements/:id', jsonLimit, async (c) => {
+  const itemId = id(c.req.param('id'))
+  if (!itemId) return c.json({ error: 'not found' }, 404)
+  const parsed = await readAchievement(c.req.raw)
+  if (!parsed.success) return c.json({ error: 'invalid entry', issues: parsed.error.issues }, 400)
+  return c.json(await saveAchievement(c.env.DB, itemId, parsed.data))
+})
+
+api.delete('/achievements/:id', async (c) => {
+  const itemId = id(c.req.param('id'))
+  return itemId && (await deleteAchievement(c.env.DB, itemId)) ? c.json({ ok: true }) : c.json({ error: 'not found' }, 404)
 })
 
 // The body is buffered rather than streamed: R2 needs a known length, and bodyLimit's stream wrapper drops it.

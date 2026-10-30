@@ -59,7 +59,7 @@ Sistem tercihine uyar; köşede elle değiştirme düğmesi, seçim tarayıcıda
 
 ## Menü ve altbilgi
 
-- Üst menü her sayfada: Writing, Notes, Projects, About.
+- Üst menü her sayfada: Writing, Notes, Projects, Awards, dil seçici ve tema düğmesi. About menüde yok; `/about` ana sayfaya yönlenir.
 - Altbilgi: RSS, GitHub, LinkedIn, e-posta, telif satırı.
 
 ## Ana sayfa: geniş ekranda iki sütun
