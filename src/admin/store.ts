@@ -17,6 +17,7 @@ export type AdminPostSummary = {
 type ExistingPost = { id: number; kind: 'writing' | 'note'; slug: string; lang: 'en' | 'tr'; status: string; revision: number | null }
 
 export class ConflictError extends Error {}
+export class InputError extends Error {}
 
 const STALE = 'post was changed elsewhere; reload before saving'
 const GUARD = 'stale revision'
@@ -52,7 +53,7 @@ export async function getPostForEdit(db: D1Database, id: number) {
 
 // Old paths keep working: the old path now points at the new one, earlier redirects into the old path
 // are retargeted instead of chained, and a redirect still sitting on the new path is dropped.
-function moveRedirects(db: D1Database, oldPath: string, newPath: string): D1PreparedStatement[] {
+export function moveRedirects(db: D1Database, oldPath: string, newPath: string): D1PreparedStatement[] {
   return [
     db.prepare('INSERT INTO redirects (from_path, to_path) VALUES (?, ?) ON CONFLICT (from_path) DO UPDATE SET to_path = excluded.to_path').bind(oldPath, newPath),
     db.prepare('UPDATE redirects SET to_path = ? WHERE to_path = ? AND from_path <> ?').bind(newPath, oldPath, newPath),

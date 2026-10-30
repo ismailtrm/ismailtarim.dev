@@ -1,27 +1,29 @@
 import { diffLines } from 'diff'
 import { useEffect, useState } from 'preact/hooks'
-import { api, type Revision, type RevisionDetail } from './api'
+import type { Revision, RevisionDetail } from './api'
 
 type Props = {
-  postId: number
+  // Where the revisions come from: a post or the profile of one language.
+  loadList: () => Promise<Revision[]>
+  loadOne: (revId: number) => Promise<RevisionDetail>
   current: string
   onRestore: (rev: RevisionDetail) => void
   onClose: () => void
 }
 
-export function History({ postId, current, onRestore, onClose }: Props) {
+export function History({ loadList, loadOne, current, onRestore, onClose }: Props) {
   const [list, setList] = useState<Revision[] | null>(null)
   const [picked, setPicked] = useState<RevisionDetail | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api.revisions(postId).then(setList, (e: Error) => setError(e.message))
-  }, [postId])
+    loadList().then(setList, (e: Error) => setError(e.message))
+  }, [])
 
   async function open(rev: Revision) {
     setError('')
     try {
-      setPicked(await api.revision(postId, rev.id))
+      setPicked(await loadOne(rev.id))
     } catch (e) {
       setError((e as Error).message)
     }

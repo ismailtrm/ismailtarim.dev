@@ -62,9 +62,11 @@ Sistem tercihine uyar; köşede elle değiştirme düğmesi, seçim tarayıcıda
 - Üst menü her sayfada: Writing, Notes, Projects, About.
 - Altbilgi: RSS, GitHub, LinkedIn, e-posta, telif satırı.
 
-## Ana sayfa: tek sütun
+## Ana sayfa: geniş ekranda iki sütun
 
-Sırasıyla: isim yazımı + menü, iki cümlelik tanıtım (İsmail yazacak), son yazılar/notlar (tarihli liste), seçili projeler. Tek sütun; içerik çoğalırsa bölünmüş düzen yeniden değerlendirilir.
+İçerik panelden gelir (`#/profile`, `#/projects`); dile göre bir profil satırı vardır. Sol sütun (aside): fotoğraf (yoksa hiç çizilmez), isim, tek satır tanıtım, konum, bağlantılar, rozetler. Sağ sütun: panelde yazılan gövde, "Selected projects" (panelde "Show on home page" işaretli projeler; yoksa bölüm yok), son yazılar/notlar (tarihli liste). Dar ekranda tek sütun, yatay kaydırma yok; yalnız ana sayfanın kabı genişler, diğer sayfalar okuma genişliğinde kalır.
+
+Gövdesi boş profil çizilmez: İngilizce profil yoksa eski ana sayfa (iki cümlelik tanıtım, son yazılar, proje tablosu) aynen gösterilir. `/tr`, kendi profili yoksa İngilizce profili gösterir; bu durumda `/tr` noindex olur ve iki ana sayfada da hreflang bulunmaz (`/tr/projects` ile aynı kural). `/about` ve `/tr/about` ana sayfaya 301 yapar.
 
 ## Saha notu biçimi: kısa cevap + hikâye
 

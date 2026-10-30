@@ -34,6 +34,42 @@ export type Stats = {
   byCountry: { country: string; client_class: ClientClass; reads: number }[]
 }
 
+export type LabelledUrl = { label: string; url: string }
+export type ProfileLang = 'en' | 'tr'
+export type EditableProfile = {
+  lang: ProfileLang
+  name: string
+  headline: string
+  location: string
+  links: LabelledUrl[]
+  badges: LabelledUrl[]
+  avatar_key: string | null
+  body_md: string
+  revision: number | null
+}
+
+export type ProjectStatus = 'merged' | 'under_review' | 'submitted' | 'published' | 'personal'
+export const LINK_KINDS = ['commit', 'pr', 'patch', 'paper', 'repo', 'demo', 'talk'] as const
+export type ProjectLinkKind = (typeof LINK_KINDS)[number]
+export type ProjectLink = LabelledUrl & { kind: ProjectLinkKind }
+export type ProjectSummary = { id: number; slug: string; name: string; year: number; status: ProjectStatus; sort_order: number; visible: number; featured: number }
+export type EditableProject = {
+  id: number | null
+  slug: string
+  name: string
+  summary: string
+  year: number
+  status: ProjectStatus
+  case_md: string | null
+  sort_order: number
+  visible: boolean
+  featured: boolean
+  post_id: number | null
+  // The newest save the editor loaded; the server refuses a save made from an older copy. Null while creating.
+  updated_at: string | null
+  links: ProjectLink[]
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -76,6 +112,28 @@ export const api = {
   },
   revisions: (id: number) => call<Revision[]>(`/posts/${id}/revisions`),
   revision: (id: number, rev: number) => call<RevisionDetail>(`/posts/${id}/revisions/${rev}`),
+  profile: (lang: ProfileLang) => call<EditableProfile>(`/profile/${lang}`),
+  saveProfile: (p: EditableProfile, bodyHtml: string, reason: 'save' | 'restore') => {
+    const { lang, revision, ...fields } = p
+    return call<{ revision: number }>(`/profile/${lang}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...fields, body_html: bodyHtml, reason, base_revision: revision }),
+    })
+  },
+  profileRevisions: (lang: ProfileLang) => call<Revision[]>(`/profile/${lang}/revisions`),
+  profileRevision: (lang: ProfileLang, rev: number) => call<RevisionDetail>(`/profile/${lang}/revisions/${rev}`),
+  projects: () => call<ProjectSummary[]>('/projects'),
+  project: (id: number) => call<EditableProject>(`/projects/${id}`),
+  saveProject: (p: EditableProject, caseHtml: string | null) => {
+    const { id, updated_at, ...fields } = p
+    return call<{ id: number; updated_at: string }>(id ? `/projects/${id}` : '/projects', {
+      method: id ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...fields, case_html: caseHtml, base_updated_at: updated_at }),
+    })
+  },
+  deleteProject: (id: number) => call<{ ok: true }>(`/projects/${id}`, { method: 'DELETE' }),
   upload: (file: File, alt: string, width: number, height: number) =>
     call<{ url: string; alt: string }>(`/uploads?${new URLSearchParams({ alt, w: String(width), h: String(height) })}`, {
       method: 'POST',

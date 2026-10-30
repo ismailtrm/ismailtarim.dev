@@ -4,12 +4,13 @@ import { html, raw } from 'hono/html'
 import type { HtmlEscapedString } from 'hono/utils/html'
 import { secureHeaders } from 'hono/secure-headers'
 import type { Env } from './env'
-import { findRedirect, getProjectCase, getPublishedPost, listByTag, listProjects, listPublished, listTranslations } from './db'
+import { findRedirect, getProjectCase, getPublishedPost, listByTag, listFeaturedProjects, listHomeProfiles, listProjects, listPublished, listTranslations } from './db'
 import type { Lang } from './db'
+import { homeState } from './home-state'
 import { llmsTxt, rss, sitemap } from './feeds'
 import { homePath, langPrefix, otherLang, UI } from './i18n'
 import { safeRedirectTarget } from './redirect'
-import { Article, Layout, PostList, ProjectLedger } from './views'
+import { Article, Layout, PostList, ProfileHome, ProjectLedger } from './views'
 import adminApi from './admin/api'
 import { recordRead, rollupRecent } from './stats'
 
@@ -104,14 +105,35 @@ for (const [pre, lang] of LANGS) {
   const ui = UI[lang]
 
   app.get(pre || '/', async (c) => {
-    const [posts, projects] = await Promise.all([listPublished(c.env.DB, lang, null, 10), listProjects(c.env.DB)])
+    const [profiles, posts] = await Promise.all([listHomeProfiles(c.env.DB), listPublished(c.env.DB, lang, null, 10)])
+    // The Turkish home borrows the English profile when it has none of its own.
+    const profile = profiles[lang] ?? (lang === 'tr' ? profiles.en : undefined)
+    const state = homeState(profiles)
     cache(c)
+    if (profile) {
+      const projects = await listFeaturedProjects(c.env.DB)
+      return page(
+        c,
+        <Layout
+          title={c.env.SITE_NAME}
+          canonical={site(c) + homePath(lang)}
+          alternates={state.paired ? bothLangs(c, homePath) : {}}
+          noindex={lang === 'tr' && !state.trIndexable}
+          wide
+          lang={lang}
+          description={profile.headline || ui.tagline}
+        >
+          <ProfileHome profile={profile} projects={projects} posts={posts} lang={lang} />
+        </Layout>,
+      )
+    }
+    const ledger = await listProjects(c.env.DB)
     return page(
       c,
       <Layout
         title={c.env.SITE_NAME}
         canonical={site(c) + homePath(lang)}
-        alternates={bothLangs(c, homePath)}
+        alternates={state.paired ? bothLangs(c, homePath) : {}}
         lang={lang}
         description={ui.tagline}
       >
@@ -124,11 +146,13 @@ for (const [pre, lang] of LANGS) {
         </section>
         <section>
           <h2>{ui.projects}</h2>
-          <ProjectLedger projects={projects.slice(0, 5)} lang={lang} />
+          <ProjectLedger projects={ledger.slice(0, 5)} lang={lang} />
         </section>
       </Layout>,
     )
   })
+
+  app.get(`${pre}/about`, (c) => c.redirect(homePath(lang), 301))
 
   for (const [section, kind, heading] of [
     ['/writing', 'writing', ui.writing],
@@ -241,13 +265,14 @@ for (const [pre, lang] of LANGS) {
 }
 
 app.get('/sitemap.xml', async (c) => {
-  const [en, tr, projects] = await Promise.all([
+  const [en, tr, projects, profiles] = await Promise.all([
     listPublished(c.env.DB, 'en', null, 5000),
     listPublished(c.env.DB, 'tr', null, 5000),
     listProjects(c.env.DB),
+    listHomeProfiles(c.env.DB),
   ])
   cache(c)
-  return c.body(sitemap(site(c), [...en, ...tr], projects), 200, { 'Content-Type': 'application/xml; charset=utf-8' })
+  return c.body(sitemap(site(c), [...en, ...tr], projects, homeState(profiles)), 200, { 'Content-Type': 'application/xml; charset=utf-8' })
 })
 
 app.get('/llms.txt', async (c) => {

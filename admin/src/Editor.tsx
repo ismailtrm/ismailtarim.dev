@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
+import { useEffect, useMemo, useState } from 'preact/hooks'
 import { api, ApiError, type EditablePost, type Kind, type PostSummary, type RevisionDetail } from './api'
 import { History } from './History'
-import { MarkdownEditor } from './MarkdownEditor'
+import { MarkdownPane } from './MarkdownPane'
 import { render } from './render'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -98,7 +98,6 @@ export function Editor({ id, kind, translateOf, onSaved }: Props) {
   const [status, setStatus] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [tab, setTab] = useState<'write' | 'preview'>('write')
   const [showHistory, setShowHistory] = useState(false)
   const [envText, setEnvText] = useState('')
   // A translation keeps the slug of the original, so typing the title must not rewrite it.
@@ -107,8 +106,6 @@ export function Editor({ id, kind, translateOf, onSaved }: Props) {
   const [others, setOthers] = useState<PostSummary[] | null>(null)
   const [othersError, setOthersError] = useState('')
   const [pendingLang, setPendingLang] = useState<'en' | 'tr' | null>(null)
-  const [preview, setPreview] = useState('')
-  const insertRef = useRef<((text: string) => void) | null>(null)
   const key = draftKey(id, kind, translateOf)
 
   useEffect(() => {
@@ -138,18 +135,6 @@ export function Editor({ id, kind, translateOf, onSaved }: Props) {
     setOthersError('')
     api.list().then(setOthers, (e: Error) => setOthersError(e.message))
   }, [savedId, server?.kind, server?.slug, server?.lang])
-
-  const bodyMd = post?.body_md ?? ''
-  useEffect(() => {
-    const t = setTimeout(() => {
-      try {
-        setPreview(render(bodyMd))
-      } catch (e) {
-        setPreview(`<p>Preview failed: ${(e as Error).message}</p>`)
-      }
-    }, 250)
-    return () => clearTimeout(t)
-  }, [bodyMd])
 
   const dirty = useMemo(() => !!post && !!server && JSON.stringify(post) !== JSON.stringify(server), [post, server])
 
@@ -181,24 +166,6 @@ export function Editor({ id, kind, translateOf, onSaved }: Props) {
       setError(e instanceof ApiError && e.status === 409 ? `${e.message}. Your text is kept in this browser.` : (e as Error).message)
     } finally {
       setBusy(false)
-    }
-  }
-
-  async function uploadFiles(files: File[]) {
-    for (const file of files) {
-      const alt = window.prompt(`Describe "${file.name}" for readers who cannot see it (alt text):`)?.trim()
-      if (!alt) continue
-      setStatus(`Uploading ${file.name}...`)
-      try {
-        const bitmap = await createImageBitmap(file)
-        const res = await api.upload(file, alt, bitmap.width, bitmap.height)
-        const safeAlt = alt.replace(/[\[\]\\]/g, '\\$&').replace(/\s+/g, ' ')
-        insertRef.current?.(`\n![${safeAlt}](${res.url})\n`)
-        setStatus(`Uploaded ${file.name}.`)
-      } catch (e) {
-        setError(`Upload failed: ${(e as Error).message}`)
-        setStatus('')
-      }
     }
   }
 
@@ -368,28 +335,7 @@ export function Editor({ id, kind, translateOf, onSaved }: Props) {
         )}
       </form>
 
-      <div class="tabs" role="tablist" aria-label="Editor view">
-        <button type="button" role="tab" aria-selected={tab === 'write'} onClick={() => setTab('write')}>
-          Write
-        </button>
-        <button type="button" role="tab" aria-selected={tab === 'preview'} onClick={() => setTab('preview')}>
-          Preview
-        </button>
-      </div>
-
-      <div class={`panes show-${tab}`}>
-        <div class="pane write">
-          <MarkdownEditor value={post.body_md} onChange={(body_md) => set({ body_md })} onFiles={uploadFiles} version={version} insertRef={insertRef} />
-          <label class="upload">
-            Add image
-            <input type="file" accept="image/png,image/jpeg,image/webp,image/avif,image/gif" onChange={(e) => uploadFiles(Array.from(e.currentTarget.files ?? []))} />
-          </label>
-        </div>
-        <article class="pane preview prose" aria-label="Preview">
-          <h1>{post.title || 'Untitled'}</h1>
-          <div dangerouslySetInnerHTML={{ __html: preview }} />
-        </article>
-      </div>
+      <MarkdownPane value={post.body_md} onChange={(body_md) => set({ body_md })} version={version} title={post.title} onStatus={setStatus} onError={setError} />
 
       <div class="actions">
         <p class="state" role="status" aria-live="polite">
@@ -420,7 +366,7 @@ export function Editor({ id, kind, translateOf, onSaved }: Props) {
         )}
       </div>
 
-      {showHistory && post.id !== null && <History postId={post.id} current={post.body_md} onRestore={restore} onClose={() => setShowHistory(false)} />}
+      {showHistory && post.id !== null && <History key={post.id} loadList={() => api.revisions(post.id!)} loadOne={(rev) => api.revision(post.id!, rev)} current={post.body_md} onRestore={restore} onClose={() => setShowHistory(false)} />}
     </div>
   )
 }

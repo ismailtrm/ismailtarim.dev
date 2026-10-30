@@ -1,5 +1,6 @@
 import type { Lang, PostListItem, Project } from './db'
 import { postPath, xmlEscape } from './format'
+import { LEGACY_HOME, type HomeState } from './home-state'
 import { langPrefix, UI } from './i18n'
 
 export function rss(siteUrl: string, siteName: string, posts: PostListItem[], lang: Lang = 'en'): string {
@@ -16,12 +17,17 @@ export function rss(siteUrl: string, siteName: string, posts: PostListItem[], la
 
 // Pages that exist in both languages carry xhtml:link alternates (Google's hreflang-in-sitemap form);
 // x-default is the English URL.
-export function sitemap(siteUrl: string, posts: PostListItem[], projects: Project[]): string {
+export function sitemap(siteUrl: string, posts: PostListItem[], projects: Project[], home: HomeState = LEGACY_HOME): string {
   const langs: Lang[] = ['en', 'tr']
   const entries: { lang: Lang; path: string; group: string }[] = []
   for (const lang of langs) {
     const pre = langPrefix(lang)
-    for (const rest of ['', '/writing', '/notes']) entries.push({ lang, path: pre + rest || '/', group: rest || '/' })
+    for (const rest of ['', '/writing', '/notes']) {
+      if (rest === '' && lang === 'tr' && !home.trIndexable) continue
+      // Homes that are not a hreflang pair get separate groups, so they carry no alternates.
+      const group = rest === '' && !home.paired ? `home-${lang}` : rest || '/'
+      entries.push({ lang, path: pre + rest || '/', group })
+    }
   }
   // Projects are English-only for now; the /tr project pages are noindex and stay out of the sitemap.
   entries.push({ lang: 'en', path: '/projects', group: '/projects' })

@@ -2,15 +2,27 @@ import { render } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
 import { api, type Kind, type PostSummary } from './api'
 import { Editor } from './Editor'
+import { ProfileEditor } from './ProfileEditor'
+import { ProjectEditor, ProjectList } from './Projects'
 import { Stats } from './Stats'
 
-// Hash routes keep every panel URL on the one static index.html: #/, #/new/note, #/edit/12, #/translate/12
-type Route = { name: 'list' } | { name: 'stats' } | { name: 'new'; kind: Kind } | { name: 'edit'; id: number } | { name: 'translate'; id: number }
+// Hash routes keep every panel URL on the one static index.html: #/, #/new/note, #/edit/12, #/translate/12, #/profile, #/projects, #/projects/new, #/projects/3
+type Route =
+  | { name: 'list' }
+  | { name: 'stats' }
+  | { name: 'profile' }
+  | { name: 'projects' }
+  | { name: 'project'; id: number | null }
+  | { name: 'new'; kind: Kind } | { name: 'edit'; id: number } | { name: 'translate'; id: number }
 
 function parse(hash: string): Route {
   const [, a, b] = hash.replace(/^#/, '').split('/')
   if (a === 'new' && (b === 'note' || b === 'writing')) return { name: 'new', kind: b }
   if (a === 'stats') return { name: 'stats' }
+  if (a === 'profile') return { name: 'profile' }
+  if (a === 'projects' && b === 'new') return { name: 'project', id: null }
+  if (a === 'projects' && b && /^\d+$/.test(b)) return { name: 'project', id: Number(b) }
+  if (a === 'projects') return { name: 'projects' }
   if (a === 'edit' && b && /^\d+$/.test(b)) return { name: 'edit', id: Number(b) }
   if (a === 'translate' && b && /^\d+$/.test(b)) return { name: 'translate', id: Number(b) }
   return { name: 'list' }
@@ -84,6 +96,8 @@ function App() {
         </a>
         <nav aria-label="Admin">
           <a href="#/">Posts</a>
+          <a href="#/profile">Profile</a>
+          <a href="#/projects">Projects</a>
           <a href="#/stats">Stats</a>
           <a href="/" target="_blank" rel="noopener">
             View site
@@ -93,6 +107,9 @@ function App() {
       <main class="admin-main">
         {route.name === 'list' && <PostList />}
         {route.name === 'stats' && <Stats />}
+        {route.name === 'profile' && <ProfileEditor />}
+        {route.name === 'projects' && <ProjectList />}
+        {route.name === 'project' && <ProjectEditor key={`project-${route.id}`} id={route.id} />}
         {route.name === 'new' && <Editor key={`new-${route.kind}`} id={null} kind={route.kind} onSaved={(id) => location.replace(`#/edit/${id}`)} />}
         {route.name === 'translate' && (
           <Editor key={`translate-${route.id}`} id={null} kind="note" translateOf={route.id} onSaved={(id) => location.replace(`#/edit/${id}`)} />

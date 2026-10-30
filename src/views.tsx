@@ -1,6 +1,6 @@
 import type { Child } from 'hono/jsx'
 import { raw } from 'hono/html'
-import type { Lang, Post, PostListItem, Project, Tag } from './db'
+import type { FeaturedProject, HomeProfile, Lang, Post, PostListItem, Project, Tag } from './db'
 import { formatDate, postPath } from './format'
 import { homePath, langPrefix, otherLang, UI } from './i18n'
 import { isSafeHttpUrl } from './redirect'
@@ -20,10 +20,12 @@ type LayoutProps = {
   // Where the language switch goes when there are no alternates to take it from.
   switchTo?: string
   noindex?: boolean
+  // The home page uses a wider container for its two columns.
+  wide?: boolean
   children: Child
 }
 
-export function Layout({ title, description, lang = 'en', canonical, alternates, switchTo, noindex, children }: LayoutProps) {
+export function Layout({ title, description, lang = 'en', canonical, alternates, switchTo, noindex, wide, children }: LayoutProps) {
   const ui = UI[lang]
   const pre = langPrefix(lang)
   const other = otherLang(lang)
@@ -56,7 +58,7 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
           data-cf-beacon={JSON.stringify({ token: ANALYTICS_TOKEN })}
         ></script>
       </head>
-      <body>
+      <body class={wide ? 'wide' : undefined}>
         <header class="site-header">
           <a class="wordmark" href={homePath(lang)} aria-label={ui.home}>
             <span class="accent">~/</span>ismail
@@ -137,6 +139,88 @@ export function ProjectLedger({ projects, lang = 'en' }: { projects: Project[]; 
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+function BadgeList({ items }: { items: { label: string; url: string }[] }) {
+  const safe = items.filter((l) => isSafeHttpUrl(l.url))
+  if (!safe.length) return null
+  return (
+    <span class="badges">
+      {safe.map((l) => (
+        <a class="badge" href={l.url} translate="no">
+          {l.label}
+        </a>
+      ))}
+    </span>
+  )
+}
+
+function FeaturedItem({ project, lang }: { project: FeaturedProject; lang: Lang }) {
+  const ui = UI[lang]
+  // A case page wins, then a published post in its own language; the query already dropped unpublished posts.
+  const href = project.has_case
+    ? `${langPrefix(lang)}/projects/${project.slug}`
+    : project.post
+      ? postPath(project.post.kind, project.post.slug, project.post.lang)
+      : null
+  return (
+    <li>
+      <p class="featured-head">
+        {href ? <a href={href}>{project.name}</a> : project.name}
+        <span class="num muted">{project.year}</span>
+        {project.status === 'personal' ? null : <span class={`status status-${project.status}`}>{ui.statusLabel[project.status]}</span>}
+      </p>
+      <p class="muted">{project.summary}</p>
+      <BadgeList items={project.links} />
+    </li>
+  )
+}
+
+type ProfileHomeProps = { profile: HomeProfile; projects: FeaturedProject[]; posts: PostListItem[]; lang: Lang }
+
+export function ProfileHome({ profile, projects, posts, lang }: ProfileHomeProps) {
+  const ui = UI[lang]
+  const links = profile.links.filter((l) => isSafeHttpUrl(l.url))
+  return (
+    <div class="home-grid">
+      <aside class="profile-card">
+        {profile.avatar ? (
+          <img class="avatar" src={`/media/${profile.avatar.key}`} alt={profile.name} width={profile.avatar.width} height={profile.avatar.height} />
+        ) : null}
+        <h1>{profile.name}</h1>
+        {profile.headline ? <p>{profile.headline}</p> : null}
+        {profile.location ? <p class="muted">{profile.location}</p> : null}
+        {links.length ? (
+          <ul class="profile-links">
+            {links.map((l) => (
+              <li>
+                <a href={l.url}>{l.label}</a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <BadgeList items={profile.badges} />
+      </aside>
+      <div class="home-main">
+        {/* body_html is produced by the owner's panel (behind Access), not by visitors. */}
+        <div class="prose">{raw(profile.body_html)}</div>
+        {projects.length ? (
+          <section>
+            <h2>{ui.selectedProjects}</h2>
+            <ul class="featured-list">
+              {projects.map((p) => (
+                <FeaturedItem project={p} lang={lang} />
+              ))}
+            </ul>
+          </section>
+        ) : null}
+        <section>
+          <h2>{ui.recent}</h2>
+          <PostList posts={posts} lang={lang} />
+        </section>
+      </div>
     </div>
   )
 }
