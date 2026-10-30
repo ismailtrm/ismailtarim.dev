@@ -20,7 +20,8 @@ app.use(
   secureHeaders({
     contentSecurityPolicy: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'"],
+      // Cloudflare Web Analytics beacon, injected at the edge; it reports to /cdn-cgi/rum on this origin.
+      scriptSrc: ["'self'", 'https://static.cloudflareinsights.com'],
       styleSrc: ["'self'"],
       imgSrc: ["'self'", 'data:'],
       objectSrc: ["'none'"],

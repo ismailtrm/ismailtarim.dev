@@ -6,6 +6,12 @@
   "upload_source_maps": true,
   "observability": { "enabled": true },
 
+  // The site is served only on its own domain. No workers.dev or preview hostnames,
+  // so /admin cannot be reached around Cloudflare Access.
+  "routes": [{ "pattern": "ismailtarim.dev", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
+
   // Static files (CSS, fonts, favicon, later the /admin bundle) are served before the Worker runs.
   "assets": {
     "directory": "./public",
@@ -17,8 +23,7 @@
     {
       "binding": "DB",
       "database_name": "ismailtarim-db",
-      // Filled in after `wrangler d1 create ismailtarim-db`; not a secret.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "e685a90b-d563-4d67-ad5e-be6d7c27d32d",
       "migrations_dir": "migrations"
     }
   ],

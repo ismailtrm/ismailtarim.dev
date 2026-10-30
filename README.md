@@ -26,7 +26,7 @@ bun run typecheck && bun run test
 ## Deploy
 
 ```sh
-bunx wrangler d1 create ismailtarim-db      # once; put the id in wrangler.jsonc
+bunx wrangler d1 create ismailtarim-db      # once (done); the id is in wrangler.jsonc
 bun run db:migrate:remote
 bun run deploy
 ```
