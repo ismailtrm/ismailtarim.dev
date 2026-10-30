@@ -1,0 +1,38 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "ismailtarim-dev",
+  "main": "src/index.tsx",
+  "compatibility_date": "2026-10-30",
+  "upload_source_maps": true,
+  "observability": { "enabled": true },
+
+  // Static files (CSS, fonts, favicon, later the /admin bundle) are served before the Worker runs.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "none"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ismailtarim-db",
+      // Filled in after `wrangler d1 create ismailtarim-db`; not a secret.
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "r2_buckets": [
+    { "binding": "MEDIA", "bucket_name": "ismailtarim-media" }
+  ],
+
+  // Non-secret settings. Secrets (D1 export token, Access audience) go through `wrangler secret put`.
+  "vars": {
+    "SITE_URL": "https://ismailtarim.dev",
+    "SITE_NAME": "İsmail Tarım",
+    "PAGE_CACHE_SECONDS": "60",
+    "BACKUP_KEEP_DAILY": "30",
+    "BACKUP_KEEP_MONTHLY": "12"
+  }
+}

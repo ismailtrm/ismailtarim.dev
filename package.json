@@ -1,0 +1,23 @@
+{
+  "name": "ismailtarim.dev",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:migrate:local": "wrangler d1 migrations apply ismailtarim-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply ismailtarim-db --remote",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "hono": "4.13.14"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261030.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.12",
+    "wrangler": "4.156.0"
+  }
+}

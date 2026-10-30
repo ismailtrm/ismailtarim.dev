@@ -1,0 +1,102 @@
+/* Tokens come from docs/DESIGN.md ("Çekirdek kehribarı", IBM Plex). Change them there first. */
+:root {
+  --bg: #f5f5f1;
+  --fg: #1c1b18;
+  --muted: #615d54;
+  --accent: #9a5a00;
+  --rule: #dedbd2;
+  --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --measure: 65ch;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #171a1f;
+    --fg: #e9e6de;
+    --muted: #a39e93;
+    --accent: #f2a93b;
+    --rule: #2e323a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme='dark'] {
+  --bg: #171a1f;
+  --fg: #e9e6de;
+  --muted: #a39e93;
+  --accent: #f2a93b;
+  --rule: #2e323a;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 17px/1.6 var(--sans);
+  padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px));
+}
+body > * { max-width: 760px; margin-inline: auto; }
+h1, h2, h3 { font-weight: 600; line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 1.9rem; margin: 0.4rem 0 1rem; }
+h2 { font-size: 1rem; color: var(--muted); margin: 2.5rem 0 0.8rem; }
+code, pre, kbd, time, .num, .badge, .verified, .wordmark { font-family: var(--mono); }
+.muted { color: var(--muted); }
+.block { display: block; }
+
+a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+a:hover { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+.site-header {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 20px;
+  padding-block: 24px 18px; border-bottom: 1px solid var(--rule);
+}
+.wordmark { font-weight: 500; font-size: 1.05rem; text-decoration: none; }
+.wordmark .accent { color: var(--accent); }
+.site-header nav { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.theme-toggle {
+  font: inherit; background: none; color: var(--muted); border: 1px solid var(--rule);
+  border-radius: 6px; padding: 0 8px; cursor: pointer;
+}
+main { padding-block: 24px 48px; }
+.intro p { font-size: 1.15rem; max-width: var(--measure); }
+
+.post-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.post-list li { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 12px; align-items: baseline; }
+.post-list time { color: var(--muted); font-size: 0.85rem; }
+@media (max-width: 560px) { .post-list li { grid-template-columns: 1fr; gap: 0; } }
+
+.table-wrap { overflow-x: auto; }
+.ledger { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.ledger th { text-align: left; font-weight: 500; color: var(--muted); border-bottom: 1px solid var(--rule); padding: 6px 10px 6px 0; }
+.ledger td { vertical-align: top; border-bottom: 1px solid var(--rule); padding: 10px 10px 10px 0; }
+.num { font-variant-numeric: tabular-nums; }
+.status { white-space: nowrap; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge {
+  font-size: 0.78rem; text-decoration: none; color: var(--accent);
+  border: 1px solid var(--rule); border-radius: 999px; padding: 1px 8px;
+}
+
+.post { max-width: var(--measure); }
+.answer { border-left: 3px solid var(--accent); padding: 8px 14px; margin: 0 0 1.5rem; }
+.answer p { margin: 4px 0; }
+.verified { font-size: 0.8rem; color: var(--muted); }
+.prose pre { overflow-x: auto; border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; font-size: 0.9rem; }
+.prose img { max-width: 100%; height: auto; }
+.tags { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); }
+
+.site-footer {
+  display: flex; flex-wrap: wrap; gap: 16px; color: var(--muted); font-size: 0.85rem;
+  border-top: 1px solid var(--rule); padding-block: 16px 32px;
+}
+.site-footer .copy { margin-left: auto; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
