@@ -4,6 +4,9 @@ import type { Post, PostListItem, Project, ProjectStatus, Tag } from './db'
 import { formatDate, postPath } from './format'
 import { isSafeHttpUrl } from './redirect'
 
+// Cloudflare Web Analytics site token. It is public by design: every page embeds it.
+const ANALYTICS_TOKEN = '72c1277b98af402da8e5b2a88edf77fd'
+
 type LayoutProps = { title: string; description?: string; lang?: string; canonical?: string; children: Child }
 
 export function Layout({ title, description, lang = 'en', canonical, children }: LayoutProps) {
@@ -19,6 +22,11 @@ export function Layout({ title, description, lang = 'en', canonical, children }:
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="stylesheet" href="/styles.css" />
         <script src="/theme.js"></script>
+        <script
+          type="module"
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon={JSON.stringify({ token: ANALYTICS_TOKEN })}
+        ></script>
       </head>
       <body>
         <header class="site-header">
