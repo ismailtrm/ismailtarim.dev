@@ -182,7 +182,7 @@ type ProfileHomeProps = { profile: HomeProfile; projects: FeaturedProject[]; pos
 
 export function ProfileHome({ profile, projects, posts, lang }: ProfileHomeProps) {
   const ui = UI[lang]
-  const links = profile.links.filter((l) => isSafeHttpUrl(l.url))
+  const links = profile.links.filter((l) => isSafeHttpUrl(l.url) || /^mailto:[^\s@]+@[^\s@]+$/.test(l.url))
   return (
     <div class="home-grid">
       <aside class="profile-card">

@@ -44,6 +44,9 @@ export type PostInput = z.infer<typeof postInput>
 // The public site only links http(s) URLs; the database CHECK on project_links says the same.
 const httpUrl = z.string().max(500).regex(/^https?:\/\/\S+$/, 'an http(s) URL')
 const labelledUrl = z.object({ label: z.string().trim().min(1).max(60), url: httpUrl })
+const profileLink = labelledUrl.extend({
+  url: z.string().max(500).regex(/^(https?:\/\/\S+|mailto:[^\s@]+@[^\s@]+)$/, 'an http(s) or mailto URL'),
+})
 
 export const profileLang = z.enum(['en', 'tr'])
 
@@ -51,7 +54,7 @@ export const profileInput = z.object({
   name: z.string().trim().min(1).max(120),
   headline: z.string().trim().max(300),
   location: z.string().trim().max(120),
-  links: z.array(labelledUrl).max(12),
+  links: z.array(profileLink).max(12),
   badges: z.array(labelledUrl).max(12),
   avatar_key: z.string().max(200).regex(/^img(?:\/[\w-]+(?:\.[\w-]+)*)+$/, 'an uploaded image key').nullable(),
   body_md: z.string().max(400_000),

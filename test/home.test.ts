@@ -214,6 +214,13 @@ describe('public home', () => {
     expect(html).toContain('height="400"')
   })
 
+  it('accepts a mailto profile link but not a mailto badge', async () => {
+    const mail = [{ label: 'Email', url: 'mailto:me@example.com' }]
+    expect((await admin('/profile/en', 'PUT', { ...profile(), badges: mail })).status).toBe(400)
+    expect((await admin('/profile/en', 'PUT', { ...profile(), links: mail })).status).toBe(200)
+    expect(await (await get('/')).text()).toContain('href="mailto:me@example.com"')
+  })
+
   it('filters unsafe link and badge urls', async () => {
     await db
       .prepare("INSERT INTO profile (lang, name, body_html, links, badges) VALUES ('en', 'N', '<p>x</p>', ?, ?)")
