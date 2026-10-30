@@ -4,6 +4,10 @@
   "main": "src/index.tsx",
   "compatibility_date": "2026-10-26",
   "upload_source_maps": true,
+  // zod 4 is large unminified; minifying keeps the Worker small and its startup fast.
+  "minify": true,
+  // Builds the /admin panel into public/admin before every deploy and dev session.
+  "build": { "command": "bun run build:admin" },
   "observability": { "enabled": true },
 
   // The site is served only on its own domain. No workers.dev or preview hostnames,

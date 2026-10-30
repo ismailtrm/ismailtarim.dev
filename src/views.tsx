@@ -47,7 +47,7 @@ export function Layout({ title, description, lang = 'en', canonical, children }:
           <a href="/rss.xml">RSS</a>
           <a href="https://github.com/ismailtrm">GitHub</a>
           <a href="https://www.linkedin.com/in/ismailtarim">LinkedIn</a>
-          <span class="copy">© {new Date().getUTCFullYear()} İsmail Tarım</span>
+          <span class="copyright">© {new Date().getUTCFullYear()} İsmail Tarım</span>
         </footer>
       </body>
     </html>

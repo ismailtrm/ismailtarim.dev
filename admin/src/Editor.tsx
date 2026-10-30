@@ -1,0 +1,335 @@
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
+import { api, ApiError, type EditablePost, type Kind, type RevisionDetail } from './api'
+import { History } from './History'
+import { MarkdownEditor } from './MarkdownEditor'
+import { render } from './render'
+
+const today = () => new Date().toISOString().slice(0, 10)
+
+function blank(kind: Kind): EditablePost {
+  return {
+    id: null,
+    kind,
+    slug: '',
+    title: '',
+    summary: null,
+    lang: 'en',
+    status: 'draft',
+    published_at: null,
+    body_md: '',
+    tags: [],
+    note: kind === 'note' ? { symptom: '', fix: '', environment: {}, verified_at: today() } : null,
+    revision: null,
+  }
+}
+
+const draftKey = (id: number | null, kind: Kind) => `draft:${id ?? `new-${kind}`}`
+
+// The browser keeps an unsaved copy so a closed tab loses nothing; only Save reaches the server.
+function readDraft(key: string): EditablePost | null {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? (JSON.parse(raw) as EditablePost) : null
+  } catch {
+    return null
+  }
+}
+
+function writeDraft(key: string, post: EditablePost | null) {
+  try {
+    if (post) localStorage.setItem(key, JSON.stringify(post))
+    else localStorage.removeItem(key)
+  } catch {
+    // Storage can be full or blocked; the editor keeps working without the local copy.
+  }
+}
+
+function envToText(env: Record<string, string>): string {
+  return Object.entries(env)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join('\n')
+}
+
+function textToEnv(text: string): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const line of text.split('\n')) {
+    const i = line.indexOf(':')
+    if (i > 0) out[line.slice(0, i).trim()] = line.slice(i + 1).trim()
+  }
+  return out
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/ı/g, 'i')
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80)
+}
+
+type Props = { id: number | null; kind: Kind; onSaved: (id: number) => void }
+
+export function Editor({ id, kind, onSaved }: Props) {
+  const [post, setPost] = useState<EditablePost | null>(id === null ? blank(kind) : null)
+  const [server, setServer] = useState<EditablePost | null>(null)
+  const [version, setVersion] = useState(0)
+  const [pendingDraft, setPendingDraft] = useState<EditablePost | null>(null)
+  const [status, setStatus] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [tab, setTab] = useState<'write' | 'preview'>('write')
+  const [showHistory, setShowHistory] = useState(false)
+  const [envText, setEnvText] = useState('')
+  const [preview, setPreview] = useState('')
+  const insertRef = useRef<((text: string) => void) | null>(null)
+  const key = draftKey(id, kind)
+
+  useEffect(() => {
+    const load = async () => {
+      const loaded = id === null ? blank(kind) : await api.get(id)
+      setServer(loaded)
+      setPost(loaded)
+      setEnvText(envToText(loaded.note?.environment ?? {}))
+      setVersion((v) => v + 1)
+      const local = readDraft(key)
+      if (local && JSON.stringify(local) !== JSON.stringify(loaded)) setPendingDraft(local)
+    }
+    load().catch((e: Error) => setError(e.message))
+  }, [id, kind])
+
+  useEffect(() => {
+    if (post && server && JSON.stringify(post) !== JSON.stringify(server)) writeDraft(key, post)
+  }, [post])
+
+  const bodyMd = post?.body_md ?? ''
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        setPreview(render(bodyMd))
+      } catch (e) {
+        setPreview(`<p>Preview failed: ${(e as Error).message}</p>`)
+      }
+    }, 250)
+    return () => clearTimeout(t)
+  }, [bodyMd])
+
+  const dirty = useMemo(() => !!post && !!server && JSON.stringify(post) !== JSON.stringify(server), [post, server])
+
+  if (!post) return <p>{error || 'Loading...'}</p>
+
+  // Functional updates: several inputs can fire before the next render.
+  const set = (patch: Partial<EditablePost> | ((p: EditablePost) => Partial<EditablePost>)) =>
+    setPost((p) => (p ? { ...p, ...(typeof patch === 'function' ? patch(p) : patch) } : p))
+
+  async function save(next: EditablePost, reason: 'save' | 'publish' | 'restore') {
+    setBusy(true)
+    setError('')
+    setStatus('')
+    try {
+      const html = render(next.body_md)
+      const res = await api.save(next, html, reason)
+      const saved = { ...next, id: res.id, revision: res.revision }
+      writeDraft(key, null)
+      setServer(saved)
+      setPost(saved)
+      setStatus(reason === 'publish' ? 'Published.' : 'Saved.')
+      if (id === null) onSaved(res.id)
+    } catch (e) {
+      setError(e instanceof ApiError && e.status === 409 ? `${e.message}. Your text is kept in this browser.` : (e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function uploadFiles(files: File[]) {
+    for (const file of files) {
+      const alt = window.prompt(`Describe "${file.name}" for readers who cannot see it (alt text):`)?.trim()
+      if (!alt) continue
+      setStatus(`Uploading ${file.name}...`)
+      try {
+        const bitmap = await createImageBitmap(file)
+        const res = await api.upload(file, alt, bitmap.width, bitmap.height)
+        insertRef.current?.(`\n![${alt}](${res.url})\n`)
+        setStatus(`Uploaded ${file.name}.`)
+      } catch (e) {
+        setError(`Upload failed: ${(e as Error).message}`)
+        setStatus('')
+      }
+    }
+  }
+
+  function restore(rev: RevisionDetail) {
+    setPost({ ...post!, title: rev.title, body_md: rev.body_md })
+    setVersion((v) => v + 1)
+    setShowHistory(false)
+    setStatus(`Loaded revision ${rev.id}. Save to keep it.`)
+  }
+
+  const published = post.status === 'published'
+
+  return (
+    <div class="editor">
+      {pendingDraft && (
+        <div class="banner" role="status">
+          This browser has unsaved changes from an earlier session.
+          <button
+            type="button"
+            onClick={() => {
+              setPost(pendingDraft)
+              setEnvText(envToText(pendingDraft.note?.environment ?? {}))
+              setVersion((v) => v + 1)
+              setPendingDraft(null)
+            }}
+          >
+            Restore them
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              writeDraft(key, null)
+              setPendingDraft(null)
+            }}
+          >
+            Discard
+          </button>
+        </div>
+      )}
+
+      <form class="meta" onSubmit={(e) => e.preventDefault()}>
+        <label>
+          Title
+          <input
+            value={post.title}
+            onInput={(e) => {
+              const title = e.currentTarget.value
+              set((p) => ({ title, ...(p.id === null && p.status !== 'published' ? { slug: slugify(title) } : {}) }))
+            }}
+            required
+          />
+        </label>
+        <label>
+          Slug
+          <input value={post.slug} onInput={(e) => set({ slug: e.currentTarget.value })} pattern="[a-z0-9-]+" required />
+        </label>
+        <label>
+          Summary
+          <input value={post.summary ?? ''} onInput={(e) => set({ summary: e.currentTarget.value || null })} />
+        </label>
+        <div class="row">
+          <label>
+            Kind
+            <select
+              value={post.kind}
+              onChange={(e) => {
+                const k = e.currentTarget.value as Kind
+                set((p) => ({ kind: k, note: k === 'note' ? (p.note ?? blank('note').note) : null }))
+              }}
+            >
+              <option value="note">Note</option>
+              <option value="writing">Writing</option>
+            </select>
+          </label>
+          <label>
+            Language
+            <select value={post.lang} onChange={(e) => set({ lang: e.currentTarget.value as 'en' | 'tr' })}>
+              <option value="en">English</option>
+              <option value="tr">Turkish</option>
+            </select>
+          </label>
+          <label>
+            Tags
+            <input
+              value={post.tags.join(', ')}
+              onInput={(e) => set({ tags: e.currentTarget.value.split(',').map((t) => t.trim()).filter(Boolean) })}
+              placeholder="linux, bluetooth"
+            />
+          </label>
+        </div>
+
+        {post.note && (
+          <fieldset class="note-box">
+            <legend>Symptom and fix</legend>
+            <label>
+              Symptom (what a reader searches for)
+              <textarea rows={2} value={post.note.symptom} onInput={(e) => { const v = e.currentTarget.value; set((p) => ({ note: { ...p.note!, symptom: v } })) }} />
+            </label>
+            <label>
+              Fix
+              <textarea rows={2} value={post.note.fix} onInput={(e) => { const v = e.currentTarget.value; set((p) => ({ note: { ...p.note!, fix: v } })) }} />
+            </label>
+            <div class="row">
+              <label>
+                Environment, one "key: value" per line
+                <textarea
+                  rows={3}
+                  value={envText}
+                  onInput={(e) => {
+                    const text = e.currentTarget.value
+                    setEnvText(text)
+                    set((p) => ({ note: { ...p.note!, environment: textToEnv(text) } }))
+                  }}
+                  placeholder={'kernel: 7.2.11\ndistro: Arch'}
+                />
+              </label>
+              <label>
+                Verified on
+                <input type="date" value={post.note.verified_at} onInput={(e) => { const v = e.currentTarget.value; set((p) => ({ note: { ...p.note!, verified_at: v } })) }} />
+              </label>
+            </div>
+          </fieldset>
+        )}
+      </form>
+
+      <div class="tabs" role="tablist" aria-label="Editor view">
+        <button type="button" role="tab" aria-selected={tab === 'write'} onClick={() => setTab('write')}>
+          Write
+        </button>
+        <button type="button" role="tab" aria-selected={tab === 'preview'} onClick={() => setTab('preview')}>
+          Preview
+        </button>
+      </div>
+
+      <div class={`panes show-${tab}`}>
+        <div class="pane write">
+          <MarkdownEditor value={post.body_md} onChange={(body_md) => set({ body_md })} onFiles={uploadFiles} version={version} insertRef={insertRef} />
+          <label class="upload">
+            Add image
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/avif,image/gif" onChange={(e) => uploadFiles(Array.from(e.currentTarget.files ?? []))} />
+          </label>
+        </div>
+        <article class="pane preview prose" aria-label="Preview">
+          <h1>{post.title || 'Untitled'}</h1>
+          <div dangerouslySetInnerHTML={{ __html: preview }} />
+        </article>
+      </div>
+
+      <div class="actions">
+        <p class="state" role="status" aria-live="polite">
+          {error ? <span class="error">{error}</span> : status || (dirty ? 'Unsaved changes' : published ? 'Published' : post.id ? 'Draft' : 'New')}
+        </p>
+        {post.id !== null && (
+          <button type="button" onClick={() => setShowHistory(!showHistory)}>
+            History
+          </button>
+        )}
+        <button type="button" disabled={busy || !dirty} onClick={() => save(post, 'save')}>
+          {published ? 'Save changes' : 'Save draft'}
+        </button>
+        {published ? (
+          <button type="button" disabled={busy} onClick={() => save({ ...post, status: 'draft' }, 'save')}>
+            Unpublish
+          </button>
+        ) : (
+          <button type="button" class="primary" disabled={busy || !post.title || !post.slug} onClick={() => save({ ...post, status: 'published' }, 'publish')}>
+            Publish
+          </button>
+        )}
+      </div>
+
+      {showHistory && post.id !== null && <History postId={post.id} current={post.body_md} onRestore={restore} onClose={() => setShowHistory(false)} />}
+    </div>
+  )
+}

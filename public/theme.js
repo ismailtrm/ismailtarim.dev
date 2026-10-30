@@ -14,4 +14,15 @@
     root.setAttribute('data-theme', next)
     try { localStorage.setItem(KEY, next) } catch (e) {}
   })
+  // Copy buttons on code frames (rendered by the admin panel, see admin/src/render.ts).
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('[data-copy]')
+    if (!btn || !navigator.clipboard) return
+    var code = btn.closest('figure') && btn.closest('figure').querySelector('pre code')
+    if (!code) return
+    navigator.clipboard.writeText(code.textContent).then(function () {
+      btn.textContent = 'Copied'
+      setTimeout(function () { btn.textContent = 'Copy' }, 1500)
+    }, function () {})
+  })
 })()

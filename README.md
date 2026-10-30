@@ -11,7 +11,11 @@ Personal site of İsmail Tarım: field notes on problems that are not documented
 - `/rss.xml`, `/sitemap.xml` and `/llms.txt` are generated from D1 on request.
 - Old URLs keep working: a slug change records a row in `redirects` and the Worker answers with a 301.
 
-Planned: the admin panel under `/admin` (Preact, behind Cloudflare Access), nightly D1 exports to R2.
+- `/admin` is a small Preact app (`admin/`, built into `public/admin`) behind Cloudflare Access. Its API under
+  `/admin/api` re-checks the Access JWT. The panel renders Markdown with markdown-it and Shiki and sends both the
+  Markdown and the HTML; every save is one D1 transaction that also writes a revision row.
+
+Planned: nightly D1 exports to R2.
 Design decisions: [`docs/DESIGN.md`](docs/DESIGN.md).
 
 ## Develop
@@ -19,7 +23,7 @@ Design decisions: [`docs/DESIGN.md`](docs/DESIGN.md).
 ```sh
 bun install
 bun run db:migrate:local      # create the local D1 schema
-bun run dev                   # http://localhost:8787
+bun run dev                   # http://localhost:8787, panel at /admin (needs ADMIN_DEV_BYPASS=1 in .dev.vars)
 bun run typecheck && bun run test
 ```
 
