@@ -124,7 +124,7 @@ export function Layout({ title, description, lang = 'en', canonical, alternates,
         <main id="main" tabindex={-1}>{children}</main>
         <footer class="site-footer">
           <a href={`${pre}/rss.xml`}>RSS</a>
-          <a href="https://github.com/ismailtrm" translate="no">@ismailtrm</a>
+          <a href="https://github.com/ismailtrm">GitHub</a>
           <a href="https://www.linkedin.com/in/ismailtarim">LinkedIn</a>
           <a href="mailto:me@ismailtarim.dev">Email</a>
           <span class="copyright">© {new Date().getUTCFullYear()} İsmail Tarım</span>
@@ -280,12 +280,6 @@ export function AchievementList({ items, lang = 'en' }: { items: Achievement[]; 
   )
 }
 
-// A GitHub profile reads as its handle; every other link keeps the label from the panel.
-function profileLinkLabel(link: { label: string; url: string }) {
-  const handle = link.url.match(/^https:\/\/github\.com\/([\w-]+)\/?$/)?.[1]
-  return handle ? `@${handle}` : link.label
-}
-
 function safeProfileLinks(profile: HomeProfile) {
   return profile.links.filter((l) => isSafeHttpUrl(l.url) || /^mailto:[^\s@]+@[^\s@]+$/.test(l.url))
 }
@@ -317,7 +311,7 @@ export function ProfileHome({ profile, projects, posts, lang }: ProfileHomeProps
           <p class="contact">
             {profile.location ? <span class="muted">{profile.location}</span> : null}
             {links.map((l) => (
-              <a href={l.url}>{profileLinkLabel(l)}</a>
+              <a href={l.url}>{l.label}</a>
             ))}
           </p>
           <BadgeList items={profile.badges} />
@@ -375,7 +369,7 @@ export function AboutPage({ profile, lang }: { profile: HomeProfile; lang: Lang 
             <Fact label={ui.links} wide>
               <span class="fact-links">
                 {links.map((l) => (
-                  <a href={l.url}>{profileLinkLabel(l)}</a>
+                  <a href={l.url}>{l.label}</a>
                 ))}
               </span>
             </Fact>
