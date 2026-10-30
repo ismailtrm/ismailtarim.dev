@@ -92,7 +92,7 @@ export function ProjectEditor({ id }: { id: number | null }) {
     load: api.project,
     save: async (p, stored) => {
       const hasCase = !!p.case_md?.trim()
-      const og_key = hasCase ? await shareCardKey(cardOf(p), stored && cardOf(stored), p.og_key) : p.og_key
+      const og_key = await shareCardKey(cardOf(p), stored && cardOf(stored), p.og_key, hasCase)
       return { ...(await api.saveProject({ ...p, og_key }, hasCase ? render(p.case_md!) : null)), og_key }
     },
     remove: api.deleteProject,

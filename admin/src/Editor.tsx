@@ -54,7 +54,8 @@ function readDraft(key: string): EditablePost | null {
       typeof d.body_md === 'string' &&
       Array.isArray(d.tags) &&
       (d.kind === 'note') === (d.note != null && typeof d.note === 'object')
-    return valid ? (d as EditablePost) : null
+    // A draft from before share cards has no key.
+    return valid ? ({ og_key: null, ...d } as EditablePost) : null
   } catch {
     return null
   }
@@ -167,7 +168,7 @@ export function Editor({ id, kind, translateOf, onSaved }: Props) {
       const html = render(next.body_md)
       // A draft is not shared yet, so its card waits for publishing.
       const public_ = reason === 'publish' || next.status === 'published'
-      const og_key = public_ ? await shareCardKey(cardOf(next), server && cardOf(server), next.og_key) : next.og_key
+      const og_key = await shareCardKey(cardOf(next), server && cardOf(server), next.og_key ?? null, public_)
       const res = await api.save({ ...next, og_key }, html, reason)
       const stamp = { id: res.id, revision: res.revision, status: next.status, published_at: res.published_at, og_key }
       setServer({ ...next, ...stamp })
@@ -204,7 +205,7 @@ export function Editor({ id, kind, translateOf, onSaved }: Props) {
             type="button"
             onClick={() => {
               // The draft's own revision may be stale; save against the one just loaded.
-              setPost({ ...pendingDraft, id: server?.id ?? null, revision: server?.revision ?? null })
+              setPost({ ...pendingDraft, id: server?.id ?? null, revision: server?.revision ?? null, og_key: server?.og_key ?? null })
               setEnvText(envToText(pendingDraft.note?.environment ?? {}))
               setVersion((v) => v + 1)
               setPendingDraft(null)

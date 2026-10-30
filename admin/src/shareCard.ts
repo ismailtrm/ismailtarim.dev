@@ -91,9 +91,11 @@ export async function renderCard(spec: CardSpec): Promise<Blob> {
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('could not encode the card'))), 'image/png'))
 }
 
-// The key to save with the page. A card is drawn only when its text changed; a failed upload must not cost the save.
-export async function shareCardKey(spec: CardSpec, previous: CardSpec | null, currentKey: string | null): Promise<string | null> {
+// The key to save with the page. A card is drawn only when its text changed and the page is public. A key whose
+// text changed is dropped, even when no new card follows: null falls back to the site card and the next save retries.
+export async function shareCardKey(spec: CardSpec, previous: CardSpec | null, currentKey: string | null, isPublic: boolean): Promise<string | null> {
   if (currentKey && JSON.stringify(spec) === JSON.stringify(previous)) return currentKey
+  if (!isPublic) return null
   try {
     const blob = await renderCard(spec)
     const file = new File([blob], 'share-card.png', { type: 'image/png' })
@@ -101,6 +103,6 @@ export async function shareCardKey(spec: CardSpec, previous: CardSpec | null, cu
     return res.url.replace(/^\/media\//, '')
   } catch (e) {
     console.error('share card', e)
-    return currentKey
+    return null
   }
 }
