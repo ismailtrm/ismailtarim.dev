@@ -2,7 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "ismailtarim-dev",
   "main": "src/index.tsx",
-  "compatibility_date": "2026-10-30",
+  "compatibility_date": "2026-10-26",
   "upload_source_maps": true,
   "observability": { "enabled": true },
 
@@ -38,6 +38,10 @@
     "SITE_NAME": "İsmail Tarım",
     "PAGE_CACHE_SECONDS": "60",
     "BACKUP_KEEP_DAILY": "30",
-    "BACKUP_KEEP_MONTHLY": "12"
+    "BACKUP_KEEP_MONTHLY": "12",
+    // /admin is a Cloudflare Access app; the Worker re-checks its JWT against these.
+    "ACCESS_TEAM_DOMAIN": "https://solitary-leaf-fa02.cloudflareaccess.com",
+    "ACCESS_AUD": "13143e40f4537fb1d09362774c5b7a6532c51cc736b6de4ac4a1670f648f5453",
+    "ADMIN_EMAIL": "ismailtarim7@gmail.com"
   }
 }

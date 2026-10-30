@@ -8,6 +8,7 @@ import { findRedirect, getProjectCase, getPublishedPost, listByTag, listProjects
 import { llmsTxt, rss, sitemap } from './feeds'
 import { safeRedirectTarget } from './redirect'
 import { Article, Layout, PostList, ProjectLedger } from './views'
+import adminApi from './admin/api'
 
 type C = Context<{ Bindings: Env }>
 
@@ -31,6 +32,23 @@ app.use(
     },
   }),
 )
+
+app.route('/admin/api', adminApi)
+
+// Uploaded images. Keys carry a random UUID, so a key never changes content and can be cached for a year.
+// SVG uploads are refused (src/admin/api.ts): served from this origin they could run script.
+app.get('/media/:key{img/.+}', async (c) => {
+  const obj = await c.env.MEDIA.get(c.req.param('key'))
+  if (!obj) return c.notFound()
+  return new Response(obj.body, {
+    headers: {
+      'Content-Type': obj.httpMetadata?.contentType ?? 'application/octet-stream',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      ETag: obj.httpEtag,
+      'X-Content-Type-Options': 'nosniff',
+    },
+  })
+})
 
 function site(c: C): string {
   return c.env.SITE_URL.replace(/\/+$/, '')
