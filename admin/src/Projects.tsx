@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks'
-import { api, ApiError, type EditableProject, type PostSummary, type ProjectStatus, type ProjectSummary } from './api'
+import { api, type EditableProject, type PostSummary, type ProjectStatus, type ProjectSummary } from './api'
 import { LinksEditor } from './LinksEditor'
 import { MarkdownPane } from './MarkdownPane'
+import { RecordActions, useRecordEditor } from './RecordEditor'
 import { render } from './render'
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
@@ -80,51 +81,25 @@ function blank(): EditableProject {
 }
 
 export function ProjectEditor({ id }: { id: number | null }) {
-  const [project, setProject] = useState<EditableProject | null>(id === null ? blank() : null)
   const [posts, setPosts] = useState<PostSummary[]>([])
-  const [status, setStatus] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [confirming, setConfirming] = useState(false)
+  const editor = useRecordEditor<EditableProject>({
+    id,
+    blank,
+    load: api.project,
+    save: (p) => api.saveProject(p, p.case_md?.trim() ? render(p.case_md) : null),
+    remove: api.deleteProject,
+    route: '/projects',
+  })
+  const { record: project, set, setStatus, setError, error } = editor
 
   useEffect(() => {
-    if (id !== null) api.project(id).then(setProject, (e: Error) => setError(e.message))
     api.list().then(setPosts, (e: Error) => setError(e.message))
-  }, [id])
+  }, [])
 
   if (!project) return <p>{error || 'Loading...'}</p>
 
   // Only published posts can be picked; the post already linked stays in the list even if it was unpublished since.
   const linkable = posts.filter((p) => p.status === 'published' || p.id === project.post_id)
-  const set = (patch: Partial<EditableProject>) => setProject((p) => (p ? { ...p, ...patch } : p))
-
-  async function save(p: EditableProject) {
-    setBusy(true)
-    setError('')
-    setStatus('')
-    try {
-      const hasCase = !!p.case_md?.trim()
-      const res = await api.saveProject(p, hasCase ? render(p.case_md!) : null)
-      set({ updated_at: res.updated_at })
-      setStatus('Saved.')
-      if (p.id === null) location.replace(`#/projects/${res.id}`)
-    } catch (e) {
-      setError(e instanceof ApiError && e.status === 409 ? `${e.message}. Reload the page to get the latest version.` : (e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function remove(projectId: number) {
-    setBusy(true)
-    try {
-      await api.deleteProject(projectId)
-      location.hash = '#/projects'
-    } catch (e) {
-      setError((e as Error).message)
-      setBusy(false)
-    }
-  }
 
   return (
     <div class="editor">
@@ -213,30 +188,7 @@ export function ProjectEditor({ id }: { id: number | null }) {
       </form>
       <h2>Case study (optional)</h2>
       <MarkdownPane value={project.case_md ?? ''} onChange={(case_md) => set({ case_md })} version={0} onStatus={setStatus} onError={setError} />
-      <div class="actions">
-        <p class="state" role="status" aria-live="polite">
-          {error ? <span class="error">{error}</span> : status}
-        </p>
-        {project.id !== null && !confirming && (
-          <button type="button" onClick={() => setConfirming(true)}>
-            Delete
-          </button>
-        )}
-        {project.id !== null && confirming && (
-          <span class="confirm" role="alert">
-            Delete this project and its links?
-            <button type="button" disabled={busy} onClick={() => remove(project.id!)}>
-              Yes, delete
-            </button>
-            <button type="button" onClick={() => setConfirming(false)}>
-              Cancel
-            </button>
-          </span>
-        )}
-        <button type="button" class="primary" disabled={busy || !project.name.trim() || !project.slug} onClick={() => save(project)}>
-          Save
-        </button>
-      </div>
+      <RecordActions editor={editor} saved={project.id !== null} deletePrompt="Delete this project and its links?" canSave={!!project.name.trim() && !!project.slug} />
     </div>
   )
 }

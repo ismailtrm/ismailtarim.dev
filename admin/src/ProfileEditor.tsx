@@ -4,6 +4,7 @@ import { History } from './History'
 import { LinksEditor } from './LinksEditor'
 import { MarkdownPane } from './MarkdownPane'
 import { render } from './render'
+import { useUnsavedGuard } from './unsaved'
 
 const IMAGE_TYPES = 'image/png,image/jpeg,image/webp,image/avif,image/gif'
 
@@ -42,6 +43,7 @@ export function ProfileEditor() {
   }, [lang])
 
   const dirty = useMemo(() => !!profile && JSON.stringify(profile) !== JSON.stringify(server), [profile, server])
+  useUnsavedGuard(dirty)
   const set = (patch: Partial<EditableProfile>) => setProfile((p) => (p ? { ...p, ...patch } : p))
 
   function switchTab(next: ProfileLang) {
