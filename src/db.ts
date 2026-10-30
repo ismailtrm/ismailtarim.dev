@@ -40,6 +40,7 @@ export type Project = {
   summary: string
   year: number
   status: ProjectStatus
+  status_label: string | null
   has_case: boolean
   links: ProjectLink[]
 }
@@ -141,7 +142,7 @@ function groupLinks(linkRows: LinkRow[]): Map<number, ProjectLink[]> {
 export async function listProjects(db: D1Database): Promise<Project[]> {
   const [projectsRes, linksRes] = await db.batch([
     db.prepare(
-      `SELECT id, slug, name, summary, year, status, COALESCE(TRIM(case_html) <> '', 0) AS has_case
+      `SELECT id, slug, name, summary, year, status, status_label, COALESCE(TRIM(case_html) <> '', 0) AS has_case
        FROM projects WHERE visible = 1 ORDER BY sort_order, year DESC`,
     ),
     db.prepare(
@@ -195,7 +196,7 @@ type FeaturedRow = ProjectRow & { post_kind: Kind | null; post_slug: string | nu
 export async function listFeaturedProjects(db: D1Database): Promise<FeaturedProject[]> {
   const [projectsRes, linksRes] = await db.batch([
     db.prepare(
-      `SELECT p.id, p.slug, p.name, p.summary, p.year, p.status, COALESCE(TRIM(p.case_html) <> '', 0) AS has_case,
+      `SELECT p.id, p.slug, p.name, p.summary, p.year, p.status, p.status_label, COALESCE(TRIM(p.case_html) <> '', 0) AS has_case,
        po.kind AS post_kind, po.slug AS post_slug, po.lang AS post_lang
        FROM projects p LEFT JOIN posts po ON po.id = p.post_id AND po.status = 'published'
        WHERE p.visible = 1 AND p.featured = 1 ORDER BY p.sort_order, p.year DESC`,

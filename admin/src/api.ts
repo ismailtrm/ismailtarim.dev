@@ -60,6 +60,7 @@ export type EditableProject = {
   summary: string
   year: number
   status: ProjectStatus
+  status_label: string | null
   case_md: string | null
   sort_order: number
   visible: boolean

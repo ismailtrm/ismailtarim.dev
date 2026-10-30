@@ -38,6 +38,7 @@ function project(overrides: Partial<ProjectInput> = {}): ProjectInput {
     summary: 'ISO init fix',
     year: 2026,
     status: 'merged',
+    status_label: null,
     case_md: null,
     case_html: null,
     sort_order: 0,
@@ -226,6 +227,15 @@ describe('public home', () => {
     expect(await (await get('/tr/notes')).text()).toContain('class="wordmark crumb" href="/tr/notes"')
     expect(await (await get('/projects')).text()).toContain('class="wordmark crumb" href="/projects"')
     expect(await (await get('/')).text()).not.toContain('wordmark crumb')
+  })
+
+  it('shows the status text instead of the fixed label', async () => {
+    await admin('/projects', 'POST', project({ slug: 'labelled', status: 'personal', status_label: 'in refactoring', visible: true, featured: true }))
+    await admin('/profile/en', 'PUT', profile())
+    expect(await (await get('/')).text()).toContain('in refactoring')
+    const list = await (await get('/projects')).text()
+    expect(list).toContain('in refactoring')
+    expect(list).not.toContain('personal tool')
   })
 
   it('filters unsafe link and badge urls', async () => {

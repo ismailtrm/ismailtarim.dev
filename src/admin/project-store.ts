@@ -23,7 +23,7 @@ export async function listAllProjects(db: D1Database): Promise<AdminProjectSumma
 export async function getProjectForEdit(db: D1Database, id: number) {
   const [project, links] = await db.batch([
     db.prepare(
-      `SELECT id, slug, name, summary, year, status, case_md, case_html, sort_order, visible, featured, post_id, updated_at
+      `SELECT id, slug, name, summary, year, status, status_label, case_md, case_html, sort_order, visible, featured, post_id, updated_at
        FROM projects WHERE id = ?`,
     ).bind(id),
     db.prepare('SELECT kind, label, url FROM project_links WHERE project_id = ? ORDER BY sort_order, id').bind(id),
@@ -52,7 +52,7 @@ export function nextStamp(prev: string | null): string {
 export async function saveProject(db: D1Database, id: number | null, input: ProjectInput): Promise<{ id: number; updated_at: string }> {
   const stamp = nextStamp(input.base_updated_at)
   const values = [
-    input.slug, input.name, input.summary, input.year, input.status, input.case_md, input.case_html,
+    input.slug, input.name, input.summary, input.year, input.status, input.status_label || null, input.case_md, input.case_html,
     input.sort_order, input.visible ? 1 : 0, input.featured ? 1 : 0, input.post_id, stamp,
   ]
   const stmts: D1PreparedStatement[] = []
@@ -61,8 +61,8 @@ export async function saveProject(db: D1Database, id: number | null, input: Proj
     stmts.push(
       db
         .prepare(
-          `INSERT INTO projects (slug, name, summary, year, status, case_md, case_html, sort_order, visible, featured, post_id, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO projects (slug, name, summary, year, status, status_label, case_md, case_html, sort_order, visible, featured, post_id, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .bind(...values),
     )
@@ -86,7 +86,7 @@ export async function saveProject(db: D1Database, id: number | null, input: Proj
         .bind(id, id, input.base_updated_at),
       db
         .prepare(
-          `UPDATE projects SET slug = ?, name = ?, summary = ?, year = ?, status = ?, case_md = ?, case_html = ?,
+          `UPDATE projects SET slug = ?, name = ?, summary = ?, year = ?, status = ?, status_label = ?, case_md = ?, case_html = ?,
            sort_order = ?, visible = ?, featured = ?, post_id = ?, updated_at = ? WHERE id = ?`,
         )
         .bind(...values, id),

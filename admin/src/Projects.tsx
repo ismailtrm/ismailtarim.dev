@@ -66,6 +66,7 @@ function blank(): EditableProject {
     summary: '',
     year: new Date().getFullYear(),
     status: 'personal',
+    status_label: null,
     case_md: null,
     sort_order: 0,
     visible: false,
@@ -152,6 +153,10 @@ export function ProjectEditor({ id }: { id: number | null }) {
                 <option value={s}>{STATUS_LABEL[s]}</option>
               ))}
             </select>
+          </label>
+          <label>
+            Status text (optional, replaces the label)
+            <input type="text" maxLength={60} value={project.status_label ?? ''} onInput={(e) => set({ status_label: e.currentTarget.value || null })} />
           </label>
           <label>
             Sort order (lower comes first)

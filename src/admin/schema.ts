@@ -73,6 +73,7 @@ export const projectInput = z
     summary: z.string().trim().min(1).max(400),
     year: z.number().int().min(1970).max(2100),
     status: z.enum(['merged', 'under_review', 'submitted', 'published', 'personal']),
+    status_label: z.string().trim().max(60).nullable().default(null),
     case_md: z.string().max(400_000).nullable(),
     case_html: z.string().max(1_000_000).nullable(),
     sort_order: z.number().int().min(-100_000).max(100_000),

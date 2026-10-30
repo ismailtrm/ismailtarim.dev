@@ -135,7 +135,7 @@ export function ProjectLedger({ projects, lang = 'en' }: { projects: Project[]; 
                 <span class="muted block">{p.summary}</span>
               </td>
               <td class="num">{p.year}</td>
-              <td class={`status status-${p.status}`}>{ui.statusLabel[p.status]}</td>
+              <td class={`status status-${p.status}`}>{p.status_label ?? ui.statusLabel[p.status]}</td>
               <td>
                 <span class="badges">
                   {p.links.filter((l) => isSafeHttpUrl(l.url)).map((l) => (
@@ -180,7 +180,7 @@ function FeaturedItem({ project, lang }: { project: FeaturedProject; lang: Lang 
       <p class="featured-head">
         {href ? <a href={href}>{project.name}</a> : project.name}
         <span class="num muted">{project.year}</span>
-        {project.status === 'personal' ? null : <span class={`status status-${project.status}`}>{ui.statusLabel[project.status]}</span>}
+        {project.status_label || project.status !== 'personal' ? <span class={`status status-${project.status}`}>{project.status_label ?? ui.statusLabel[project.status]}</span> : null}
       </p>
       <p class="muted">{project.summary}</p>
       <BadgeList items={project.links} />
@@ -190,15 +190,16 @@ function FeaturedItem({ project, lang }: { project: FeaturedProject; lang: Lang 
 
 function AchievementItem({ item }: { item: Achievement }) {
   return (
-    <li>
-      <p class="featured-head">
-        {item.title}
+    <li class="record">
+      <p class="record-result">
+        {item.outcome ? <strong>{item.outcome}</strong> : null}
         <span class="num muted">{item.year}</span>
-        {item.outcome ? <span class="status">{item.outcome}</span> : null}
       </p>
-      {item.context ? <p class="muted">{item.context}</p> : null}
-      {item.summary ? <p>{item.summary}</p> : null}
-      <BadgeList items={item.links} />
+      <div class="record-body">
+        <h3>{item.title}</h3>
+        {item.context || item.summary ? <p class="muted">{[item.context && `${item.context}.`, item.summary].filter(Boolean).join(' ')}</p> : null}
+        <BadgeList items={item.links} />
+      </div>
     </li>
   )
 }
@@ -213,7 +214,7 @@ export function AchievementList({ items, lang = 'en' }: { items: Achievement[]; 
         return mine.length ? (
           <section>
             <h2>{heading}</h2>
-            <ul class="featured-list">
+            <ul class="record-list">
               {mine.map((a) => (
                 <AchievementItem item={a} />
               ))}
