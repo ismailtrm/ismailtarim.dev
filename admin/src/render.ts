@@ -16,10 +16,15 @@ import ini from 'shiki/dist/langs/ini.mjs'
 import javascript from 'shiki/dist/langs/javascript.mjs'
 import json from 'shiki/dist/langs/json.mjs'
 import jsonc from 'shiki/dist/langs/jsonc.mjs'
+import lua from 'shiki/dist/langs/lua.mjs'
+import make from 'shiki/dist/langs/make.mjs'
+import nginx from 'shiki/dist/langs/nginx.mjs'
 import python from 'shiki/dist/langs/python.mjs'
+import qml from 'shiki/dist/langs/qml.mjs'
 import rust from 'shiki/dist/langs/rust.mjs'
 import shellsession from 'shiki/dist/langs/shellsession.mjs'
 import sql from 'shiki/dist/langs/sql.mjs'
+import sshConfig from 'shiki/dist/langs/ssh-config.mjs'
 import toml from 'shiki/dist/langs/toml.mjs'
 import tsx from 'shiki/dist/langs/tsx.mjs'
 import typescript from 'shiki/dist/langs/typescript.mjs'
@@ -61,7 +66,7 @@ const toClasses: ShikiTransformer = {
   },
 }
 
-const LANGS = [bash, c, css, diff, dockerfile, go, html, ini, javascript, json, jsonc, python, rust, shellsession, sql, toml, tsx, typescript, yaml]
+const LANGS = [bash, c, css, diff, dockerfile, go, html, ini, javascript, json, jsonc, lua, make, nginx, python, qml, rust, shellsession, sql, sshConfig, toml, tsx, typescript, yaml]
 const ALIASES: Record<string, string> = { sh: 'bash', shell: 'bash', zsh: 'bash', console: 'shellsession', ts: 'typescript', js: 'javascript', py: 'python', yml: 'yaml', golang: 'go', rs: 'rust' }
 
 const highlighter = createHighlighterCoreSync({ themes: [theme], langs: LANGS.flat(), engine: createJavaScriptRegexEngine() })
