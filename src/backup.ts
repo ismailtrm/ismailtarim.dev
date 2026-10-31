@@ -33,7 +33,7 @@ async function exportSql(env: Env, token: string, fetchImpl: typeof fetch, wait:
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-    if (!res.ok) throw new Error(`D1 export ${res.status}: ${await res.text()}`)
+    if (!res.ok) throw new Error(`D1 export ${res.status}: ${(await res.text()).slice(0, 200)}`)
     return ((await res.json()) as { result?: ExportResult }).result ?? {}
   }
   const started = await call({ output_format: 'polling' })
@@ -44,6 +44,7 @@ async function exportSql(env: Env, token: string, fetchImpl: typeof fetch, wait:
     await wait(POLL_INTERVAL_MS)
     result = await call({ output_format: 'polling', current_bookmark: started.at_bookmark })
   }
+  if (result.error) throw new Error(`D1 export: ${result.error}`)
   const url = result.result?.signed_url
   if (!url) throw new Error('D1 export timed out')
   const dump = await fetchImpl(url)

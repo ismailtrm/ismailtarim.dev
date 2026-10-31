@@ -65,6 +65,12 @@ describe('backupDatabase', () => {
     await expect(backupDatabase({ ...e, D1_EXPORT_TOKEN: 't' }, new Date(), never, noWait)).rejects.toThrow('timed out')
   })
 
+  it('reports an error returned by the last poll', async () => {
+    let calls = 0
+    const late = (async () => Response.json({ result: { at_bookmark: 'b1', ...(++calls === 31 ? { error: 'dump failed' } : {}) } })) as typeof fetch
+    await expect(backupDatabase({ ...e, D1_EXPORT_TOKEN: 'test' }, new Date(), late, noWait)).rejects.toThrow('dump failed')
+  })
+
   it('is not reachable through /media', async () => {
     await e.MEDIA.put(key('2026-10-31'), 'secret')
     expect((await self.fetch(`https://ismailtarim.dev/media/${key('2026-10-31')}`)).status).toBe(404)

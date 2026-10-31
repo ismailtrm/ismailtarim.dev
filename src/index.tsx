@@ -398,7 +398,7 @@ export default {
     const results = await Promise.allSettled([rollupRecent(env), backupDatabase(env)])
     const failed = results.filter((r) => r.status === 'rejected')
     // Workers logs show an AggregateError's name and stack only, not the errors inside it.
-    for (const r of failed) console.error(`scheduled job: ${(r.reason as Error).message}`)
+    for (const r of failed) console.error(`scheduled job: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`)
     if (failed.length) throw new AggregateError(failed.map((r) => r.reason), 'scheduled job failed')
   },
 } satisfies ExportedHandler<Env>
