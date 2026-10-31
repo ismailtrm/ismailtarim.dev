@@ -1,9 +1,10 @@
 import { Hono } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { csrf } from 'hono/csrf'
+import { setCookie } from 'hono/cookie'
 import { HTTPException } from 'hono/http-exception'
 import type { Env } from '../env'
-import { readStats, rollupRecent } from '../stats'
+import { OWNER_COOKIE, readStats, rollupRecent } from '../stats'
 import { requireAccess } from './access'
 import { deleteAchievement, getAchievementForEdit, listAllAchievements, saveAchievement } from './achievement-store'
 import { deleteProject, getProjectForEdit, listAllProjects, saveProject } from './project-store'
@@ -24,6 +25,11 @@ const api = new Hono<{ Bindings: Env }>()
 
 api.use(csrf())
 api.use(requireAccess())
+// Past the Access check, so only the owner's browser gets it. A forged one only hides the forger's own reads.
+api.use(async (c, next) => {
+  await next()
+  setCookie(c, OWNER_COOKIE, '1', { path: '/', maxAge: 31_536_000, secure: true, httpOnly: true, sameSite: 'Lax' })
+})
 
 api.onError((err, c) => {
   if (err instanceof HTTPException) return err.getResponse()
@@ -57,9 +63,10 @@ api.get('/stats', async (c) => {
 
 // Re-copies past days from Analytics Engine, which keeps raw events for about 90 days.
 // The nightly job covers only the last 3, so this is how older days get in (first token, missed nights).
+// Each day takes three queries, and the Free plan allows 50 subrequests per request.
 api.post('/stats/rollup', async (c) => {
   if (!c.env.AE_API_TOKEN) return c.json({ error: 'AE_API_TOKEN is not set' }, 409)
-  await rollupRecent(c.env, new Date(), clampDays(c.req.query('days'), 3, 90))
+  await rollupRecent(c.env, new Date(), clampDays(c.req.query('days'), 3, 14))
   return c.json({ ok: true })
 })
 

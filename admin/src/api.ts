@@ -33,6 +33,9 @@ export type Stats = {
   byPath: { path: string; client_class: ClientClass; reads: number }[]
   byAgent: { client_class: ClientClass; agent: string; reads: number }[]
   byCountry: { country: string; client_class: ClientClass; reads: number }[]
+  byDay: { day: string; client_class: ClientClass; reads: number }[]
+  visitors: { day: string; visitors: number }[]
+  sources: { source: string; campaign: string; reads: number; visitor_days: number }[]
 }
 
 export type LabelledUrl = { label: string; url: string }
