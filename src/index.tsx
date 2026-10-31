@@ -42,7 +42,7 @@ app.use(async (c, next) => {
   await next()
   // Counting must never cost a reader the page.
   try {
-    recordRead(c.env, c.req.raw, c.req.path, c.res.status)
+    await recordRead(c.env, c.req.raw, c.req.path, c.res.status)
   } catch (e) {
     console.error('recordRead', e)
   }

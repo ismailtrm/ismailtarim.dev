@@ -94,6 +94,13 @@ describe('admin API', () => {
     expect(res.status).toBe(401)
   })
 
+  it('marks the owner browser after the Access check and nobody before it', async () => {
+    const denied = await worker.fetch('https://ismailtarim.dev/admin/api/posts')
+    expect(denied.headers.get('Set-Cookie')).toBeNull()
+    const allowed = await worker.fetch('http://localhost/admin/api/posts')
+    expect(allowed.headers.get('Set-Cookie')).toContain('site_owner=1')
+  })
+
   it('rejects a forged Access token', async () => {
     const res = await worker.fetch('https://ismailtarim.dev/admin/api/posts', {
       headers: { 'Cf-Access-Jwt-Assertion': 'e30.e30.' },

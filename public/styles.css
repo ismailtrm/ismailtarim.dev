@@ -243,7 +243,16 @@ body.admin > * { max-width: 1280px; }
 .admin .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
 .admin fieldset { border: 1px solid var(--rule); border-radius: 8px; display: grid; gap: 10px; }
 .admin legend { color: var(--accent); font-size: 0.85rem; }
-.list-actions { display: flex; gap: 10px; margin-bottom: 20px; }
+.list-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+.stat-chart { margin: 0 0 24px; }
+.stat-chart figcaption { font-weight: 500; margin-bottom: 8px; }
+.stat-chart svg { display: block; width: 100%; height: auto; }
+.stat-bar { fill: var(--accent); }
+.stat-axis { stroke: var(--rule); }
+.stat-range { display: flex; justify-content: space-between; font-size: 0.85em; margin-top: 4px; }
+.link-builder { display: grid; gap: 8px; border: 1px solid var(--rule); border-radius: 8px; padding: 12px; margin: 0 0 24px; }
+.link-builder label { display: grid; gap: 4px; }
+.link-builder button { justify-self: start; }
 .post-table { width: 100%; border-collapse: collapse; }
 .post-table th { text-align: left; font-weight: 500; color: var(--muted); border-bottom: 1px solid var(--rule); padding: 6px 10px 6px 0; }
 .post-table td { border-bottom: 1px solid var(--rule); padding: 10px 10px 10px 0; }

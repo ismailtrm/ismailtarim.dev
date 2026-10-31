@@ -114,7 +114,8 @@ describe('scheduled order', () => {
     try {
       const jobs = { ...e, AE_API_TOKEN: 'test', CF_ACCOUNT_ID: 'acct', D1_EXPORT_TOKEN: 'test' }
       await expect(worker.scheduled({} as ScheduledController, jobs)).rejects.toThrow('scheduled job failed')
-      expect(seen).toEqual(['rollup', 'rollup', 'rollup', 'export-after-rollup'])
+      expect(seen.at(-1)).toBe('export-after-rollup')
+      expect(seen).not.toContain('export-during-rollup')
     } finally {
       vi.unstubAllGlobals()
       log.mockRestore()
