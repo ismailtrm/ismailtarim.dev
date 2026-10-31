@@ -62,6 +62,8 @@ const COUNTED = new RegExp(
   `^(?:/(?:tr)?|(?:/tr)?/(?:notes|writing|projects|about|awards|(?:notes|writing|projects|tags)/${SLUGGED}|rss\\.xml)|/(?:sitemap\\.xml|llms\\.txt|robots\\.txt))$`,
 )
 
+const MACHINE_FILE = /^(?:\/tr)?\/rss\.xml$|^\/(?:robots\.txt|llms\.txt|sitemap\.xml)$/
+
 // Set by the admin API on the owner's browser, so the owner's own reads are left out.
 export const OWNER_COOKIE = 'site_owner'
 
@@ -102,7 +104,9 @@ export async function recordRead(env: Env, req: Request, path: string, status: n
   if (new RegExp(`(?:^|;\\s*)${OWNER_COOKIE}=1(?:;|$)`).test(req.headers.get('Cookie') ?? '')) return
   const p = path.replace(/\/+$/, '') || '/'
   if (!COUNTED.test(p)) return
-  const { cls, agent } = classifyAgent(req.headers.get('User-Agent'))
+  const classified = classifyAgent(req.headers.get('User-Agent'))
+  // People do not read these, so a browser User-Agent here is a program dressed as one.
+  const { cls, agent } = classified.cls === 'human' && MACHINE_FILE.test(p) ? { cls: 'bot' as const, agent: 'browser-ua' } : classified
   const country = (req.cf?.country as string | undefined) ?? 'XX'
   // Source and visitor are for people only, so a crawler cannot fill the sources table.
   const human = cls === 'human'

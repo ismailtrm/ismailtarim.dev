@@ -136,6 +136,13 @@ describe('recordRead', () => {
     expect(points[0]?.blobs?.slice(4)).toEqual(['', '', ''])
   })
 
+  it.each(['/robots.txt', '/llms.txt', '/sitemap.xml', '/rss.xml', '/tr/rss.xml'])('never counts %s as a person, even with a browser User-Agent', async (path) => {
+    const { env: en, points } = capture()
+    await recordRead({ ...en, AE_API_TOKEN: 'test' }, person(`https://ismailtarim.dev${path}?utm_source=x`), path, 200)
+    expect(points[0]?.blobs?.slice(1, 3)).toEqual(['bot', 'browser-ua'])
+    expect(points[0]?.blobs?.slice(4)).toEqual(['', '', ''])
+  })
+
   it('skips the owner', async () => {
     const { env: en, points } = capture()
     await count(person('https://ismailtarim.dev/notes', { Cookie: `a=b; ${OWNER_COOKIE}=1` }), en)
