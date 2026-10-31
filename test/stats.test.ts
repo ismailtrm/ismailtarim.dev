@@ -19,6 +19,7 @@ describe('classifyAgent', () => {
     ['Mozilla/5.0 (compatible; AhrefsBot/7.0; +http://ahrefs.com/robot/)', 'bot', 'ahrefsbot'],
     ['Mozilla/5.0 HeadlessChrome/120.0', 'bot', 'headlesschrome'],
     ['x1bot/1.0', 'bot', 'other'],
+    ['Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36 Chrome-Lighthouse', 'bot', 'chrome-lighthouse'],
     ['', 'bot', 'empty'],
   ])('%s', (ua, cls, agent) => {
     expect(classifyAgent(ua)).toEqual({ cls, agent })
@@ -133,6 +134,13 @@ describe('recordRead', () => {
   it('stores no source or visitor for a crawler', async () => {
     const { env: en, points } = capture()
     await count(new Request('https://ismailtarim.dev/notes?utm_source=spam', { headers: { 'User-Agent': 'GPTBot/1.2' } }), { ...en, AE_API_TOKEN: 'test' })
+    expect(points[0]?.blobs?.slice(4)).toEqual(['', '', ''])
+  })
+
+  it.each(['/robots.txt', '/llms.txt', '/sitemap.xml', '/rss.xml', '/tr/rss.xml'])('never counts %s as a person, even with a browser User-Agent', async (path) => {
+    const { env: en, points } = capture()
+    await recordRead({ ...en, AE_API_TOKEN: 'test' }, person(`https://ismailtarim.dev${path}?utm_source=x`), path, 200)
+    expect(points[0]?.blobs?.slice(1, 3)).toEqual(['bot', 'browser-ua'])
     expect(points[0]?.blobs?.slice(4)).toEqual(['', '', ''])
   })
 

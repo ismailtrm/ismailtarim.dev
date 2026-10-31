@@ -37,10 +37,10 @@ const SEARCH: [RegExp, string][] = [
   [/Applebot/i, 'Applebot'],
 ]
 
-const GENERIC_BOT = /bot|crawl|spider|slurp|curl|wget|python|httpx|go-http-client|java\/|okhttp|headless|feed|scrapy|node-fetch|axios/i
+const GENERIC_BOT = /bot|lighthouse|crawl|spider|slurp|curl|wget|python|httpx|go-http-client|java\/|okhttp|headless|feed|scrapy|node-fetch|axios/i
 
 // A fixed list, because a free-form name from the User-Agent would let any client add rows.
-const KNOWN_BOT = /ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|facebookexternalhit|linkedinbot|twitterbot|slackbot|discordbot|telegrambot|whatsapp|uptimerobot|headlesschrome|scrapy|curl|wget|python-requests|python-httpx|go-http-client|okhttp|node-fetch|axios/i
+const KNOWN_BOT = /chrome-lighthouse|ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|facebookexternalhit|linkedinbot|twitterbot|slackbot|discordbot|telegrambot|whatsapp|uptimerobot|headlesschrome|scrapy|curl|wget|python-requests|python-httpx|go-http-client|okhttp|node-fetch|axios/i
 
 function botName(ua: string): string {
   return KNOWN_BOT.exec(ua)?.[0].toLowerCase() ?? 'other'
@@ -61,6 +61,8 @@ const SLUGGED = '[a-z0-9-]{1,120}'
 const COUNTED = new RegExp(
   `^(?:/(?:tr)?|(?:/tr)?/(?:notes|writing|projects|about|awards|(?:notes|writing|projects|tags)/${SLUGGED}|rss\\.xml)|/(?:sitemap\\.xml|llms\\.txt|robots\\.txt))$`,
 )
+
+const MACHINE_FILE = /^(?:\/tr)?\/rss\.xml$|^\/(?:robots\.txt|llms\.txt|sitemap\.xml)$/
 
 // Set by the admin API on the owner's browser, so the owner's own reads are left out.
 export const OWNER_COOKIE = 'site_owner'
@@ -102,7 +104,9 @@ export async function recordRead(env: Env, req: Request, path: string, status: n
   if (new RegExp(`(?:^|;\\s*)${OWNER_COOKIE}=1(?:;|$)`).test(req.headers.get('Cookie') ?? '')) return
   const p = path.replace(/\/+$/, '') || '/'
   if (!COUNTED.test(p)) return
-  const { cls, agent } = classifyAgent(req.headers.get('User-Agent'))
+  const classified = classifyAgent(req.headers.get('User-Agent'))
+  // People do not read these, so a browser User-Agent here is a program dressed as one.
+  const { cls, agent } = classified.cls === 'human' && MACHINE_FILE.test(p) ? { cls: 'bot' as const, agent: 'browser-ua' } : classified
   const country = (req.cf?.country as string | undefined) ?? 'XX'
   // Source and visitor are for people only, so a crawler cannot fill the sources table.
   const human = cls === 'human'
