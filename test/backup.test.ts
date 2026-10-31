@@ -1,5 +1,5 @@
 import { env, exports } from 'cloudflare:workers'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { backupDatabase, backupsToDelete } from '../src/backup'
 import type { Env } from '../src/env'
 import worker from '../src/index'
@@ -16,10 +16,13 @@ function exportApi(dump = 'CREATE TABLE t(x);') {
     const url = String(input)
     calls.push(url)
     if (url === 'https://dump.example/x.sql') return new Response(dump)
-    const body = JSON.parse(String(init?.body)) as { current_bookmark?: string }
-    if (!body.current_bookmark) return Response.json({ result: { at_bookmark: 'b1' } })
+    const body = JSON.parse(String(init?.body)) as { output_format?: string; current_bookmark?: string }
+    if (body.output_format !== 'polling') return new Response('output_format required', { status: 400 })
+    if (!body.current_bookmark) return Response.json({ result: { at_bookmark: 'b1', status: 'active' } })
     polls++
-    return Response.json({ result: polls === 1 ? { at_bookmark: 'b1' } : { signed_url: 'https://dump.example/x.sql' } })
+    return Response.json({
+      result: polls === 1 ? { at_bookmark: 'b1', status: 'active' } : { at_bookmark: 'b1', status: 'complete', result: { signed_url: 'https://dump.example/x.sql' } },
+    })
   }) as typeof fetch
   return { impl, calls }
 }
@@ -65,6 +68,23 @@ describe('backupDatabase', () => {
   it('is not reachable through /media', async () => {
     await e.MEDIA.put(key('2026-10-31'), 'secret')
     expect((await self.fetch(`https://ismailtarim.dev/media/${key('2026-10-31')}`)).status).toBe(404)
+  })
+})
+
+describe('scheduled', () => {
+  it('logs why each job failed', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.stubGlobal('fetch', async () => new Response('forbidden', { status: 403 }))
+    try {
+      const failing = { ...e, AE_API_TOKEN: 'test', CF_ACCOUNT_ID: 'acct', D1_EXPORT_TOKEN: 'test' }
+      await expect(worker.scheduled({} as ScheduledController, failing)).rejects.toThrow('scheduled job failed')
+      const logged = log.mock.calls.map((c) => String(c[0]))
+      expect(logged.some((m) => m.includes('read rollup failed') && m.includes('403'))).toBe(true)
+      expect(logged.some((m) => m.includes('D1 export 403'))).toBe(true)
+    } finally {
+      vi.unstubAllGlobals()
+      log.mockRestore()
+    }
   })
 })
 

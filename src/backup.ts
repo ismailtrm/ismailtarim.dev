@@ -23,7 +23,7 @@ function count(value: string, fallback: number): number {
   return Number.isInteger(n) && n > 0 ? n : fallback
 }
 
-type ExportResult = { at_bookmark?: string; signed_url?: string; error?: string }
+type ExportResult = { at_bookmark?: string; error?: string; result?: { signed_url?: string } }
 
 // D1's export API: the first call starts a dump and returns a bookmark, later calls with it return the URL when ready.
 async function exportSql(env: Env, token: string, fetchImpl: typeof fetch, wait: (ms: number) => Promise<void>): Promise<Response> {
@@ -33,19 +33,20 @@ async function exportSql(env: Env, token: string, fetchImpl: typeof fetch, wait:
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
-    if (!res.ok) throw new Error(`D1 export ${res.status}`)
+    if (!res.ok) throw new Error(`D1 export ${res.status}: ${await res.text()}`)
     return ((await res.json()) as { result?: ExportResult }).result ?? {}
   }
   const started = await call({ output_format: 'polling' })
   if (!started.at_bookmark) throw new Error('D1 export returned no bookmark')
   let result = started
-  for (let i = 0; i < POLL_ATTEMPTS && !result.signed_url; i++) {
+  for (let i = 0; i < POLL_ATTEMPTS && !result.result?.signed_url; i++) {
     if (result.error) throw new Error(`D1 export: ${result.error}`)
     await wait(POLL_INTERVAL_MS)
-    result = await call({ current_bookmark: started.at_bookmark })
+    result = await call({ output_format: 'polling', current_bookmark: started.at_bookmark })
   }
-  if (!result.signed_url) throw new Error('D1 export timed out')
-  const dump = await fetchImpl(result.signed_url)
+  const url = result.result?.signed_url
+  if (!url) throw new Error('D1 export timed out')
+  const dump = await fetchImpl(url)
   if (!dump.ok) throw new Error(`D1 export download ${dump.status}`)
   return dump
 }
