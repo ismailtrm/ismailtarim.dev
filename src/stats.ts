@@ -39,12 +39,11 @@ const SEARCH: [RegExp, string][] = [
 
 const GENERIC_BOT = /bot|crawl|spider|slurp|curl|wget|python|httpx|go-http-client|java\/|okhttp|headless|feed|scrapy|node-fetch|axios/i
 
-// A name from the User-Agent, never the whole string, which can carry anything the client likes.
+// A fixed list, because a free-form name from the User-Agent would let any client add rows.
+const KNOWN_BOT = /ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|facebookexternalhit|linkedinbot|twitterbot|slackbot|discordbot|telegrambot|whatsapp|uptimerobot|headlesschrome|scrapy|curl|wget|python-requests|python-httpx|go-http-client|okhttp|node-fetch|axios/i
+
 function botName(ua: string): string {
-  const named = /[a-z0-9_.-]*(?:bot|crawl|spider)[a-z0-9_.-]*/i.exec(ua)?.[0]
-  const first = /^([a-z0-9_.-]+)\//i.exec(ua)?.[1]
-  const name = named ?? (first && first !== 'Mozilla' ? first : undefined)
-  return name ? name.slice(0, 40).toLowerCase() : 'other'
+  return KNOWN_BOT.exec(ua)?.[0].toLowerCase() ?? 'other'
 }
 
 export function classifyAgent(ua: string | null | undefined): { cls: ClientClass; agent: string } {

@@ -17,7 +17,8 @@ describe('classifyAgent', () => {
     ['Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0', 'human', 'browser'],
     ['curl/8.10.1', 'bot', 'curl'],
     ['Mozilla/5.0 (compatible; AhrefsBot/7.0; +http://ahrefs.com/robot/)', 'bot', 'ahrefsbot'],
-    ['Mozilla/5.0 HeadlessChrome/120.0', 'bot', 'other'],
+    ['Mozilla/5.0 HeadlessChrome/120.0', 'bot', 'headlesschrome'],
+    ['x1bot/1.0', 'bot', 'other'],
     ['', 'bot', 'empty'],
   ])('%s', (ua, cls, agent) => {
     expect(classifyAgent(ua)).toEqual({ cls, agent })
