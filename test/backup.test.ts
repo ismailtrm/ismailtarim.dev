@@ -94,6 +94,34 @@ describe('scheduled', () => {
   })
 })
 
+describe('scheduled order', () => {
+  it('finishes the rollup before the export starts, because an export blocks D1', async () => {
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const seen: string[] = []
+    let rollupsOpen = 0
+    vi.stubGlobal('fetch', async (input: string) => {
+      const url = String(input)
+      if (url.includes('/analytics_engine/')) {
+        rollupsOpen++
+        await new Promise((r) => setTimeout(r, 1))
+        rollupsOpen--
+        seen.push('rollup')
+        return Response.json({ data: [] })
+      }
+      seen.push(rollupsOpen === 0 ? 'export-after-rollup' : 'export-during-rollup')
+      return new Response('forbidden', { status: 403 })
+    })
+    try {
+      const jobs = { ...e, AE_API_TOKEN: 'test', CF_ACCOUNT_ID: 'acct', D1_EXPORT_TOKEN: 'test' }
+      await expect(worker.scheduled({} as ScheduledController, jobs)).rejects.toThrow('scheduled job failed')
+      expect(seen).toEqual(['rollup', 'rollup', 'rollup', 'export-after-rollup'])
+    } finally {
+      vi.unstubAllGlobals()
+      log.mockRestore()
+    }
+  })
+})
+
 describe('error pages', () => {
   it('are not cached when a query fails', async () => {
     const broken = { ...e, DB: { prepare: () => { throw new Error('D1 down') } } as unknown as D1Database }
