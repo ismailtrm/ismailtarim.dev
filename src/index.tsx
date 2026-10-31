@@ -395,7 +395,8 @@ export default {
   fetch: app.fetch,
   async scheduled(_event: ScheduledController, env: Env) {
     // Independent jobs: a failed rollup must not cost the night's backup, or the reverse.
-    const results = await Promise.allSettled([rollupRecent(env), backupDatabase(env)])
+    // In this order because D1 does not serve queries while an export runs.
+    const results = [...(await Promise.allSettled([rollupRecent(env)])), ...(await Promise.allSettled([backupDatabase(env)]))]
     const failed = results.filter((r) => r.status === 'rejected')
     // Workers logs show an AggregateError's name and stack only, not the errors inside it.
     for (const r of failed) console.error(`scheduled job: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`)
