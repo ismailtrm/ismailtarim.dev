@@ -19,6 +19,7 @@ describe('classifyAgent', () => {
     ['Mozilla/5.0 (compatible; AhrefsBot/7.0; +http://ahrefs.com/robot/)', 'bot', 'ahrefsbot'],
     ['Mozilla/5.0 HeadlessChrome/120.0', 'bot', 'headlesschrome'],
     ['x1bot/1.0', 'bot', 'other'],
+    ['Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36 Chrome-Lighthouse', 'bot', 'chrome-lighthouse'],
     ['', 'bot', 'empty'],
   ])('%s', (ua, cls, agent) => {
     expect(classifyAgent(ua)).toEqual({ cls, agent })

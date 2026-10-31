@@ -37,10 +37,10 @@ const SEARCH: [RegExp, string][] = [
   [/Applebot/i, 'Applebot'],
 ]
 
-const GENERIC_BOT = /bot|crawl|spider|slurp|curl|wget|python|httpx|go-http-client|java\/|okhttp|headless|feed|scrapy|node-fetch|axios/i
+const GENERIC_BOT = /bot|lighthouse|crawl|spider|slurp|curl|wget|python|httpx|go-http-client|java\/|okhttp|headless|feed|scrapy|node-fetch|axios/i
 
 // A fixed list, because a free-form name from the User-Agent would let any client add rows.
-const KNOWN_BOT = /ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|facebookexternalhit|linkedinbot|twitterbot|slackbot|discordbot|telegrambot|whatsapp|uptimerobot|headlesschrome|scrapy|curl|wget|python-requests|python-httpx|go-http-client|okhttp|node-fetch|axios/i
+const KNOWN_BOT = /chrome-lighthouse|ahrefsbot|semrushbot|mj12bot|dotbot|petalbot|facebookexternalhit|linkedinbot|twitterbot|slackbot|discordbot|telegrambot|whatsapp|uptimerobot|headlesschrome|scrapy|curl|wget|python-requests|python-httpx|go-http-client|okhttp|node-fetch|axios/i
 
 function botName(ua: string): string {
   return KNOWN_BOT.exec(ua)?.[0].toLowerCase() ?? 'other'
